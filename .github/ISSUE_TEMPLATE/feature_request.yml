@@ -1,0 +1,38 @@
+name: Feature request
+description: Describe a terrain-editing workflow that could work better.
+title: "[Feature] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Search existing issues and the roadmap first. Describe the practical problem before a particular implementation.
+        Use synthetic examples or non-sensitive descriptions; do not upload private terrain or client projects.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Workflow and problem
+      description: What are you trying to accomplish, how do you do it today, and what takes unnecessary time or produces errors?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired behavior
+      description: Describe a concrete example of the proposed workflow and how you would recognize a successful result.
+    validations:
+      required: true
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Relevant constraints
+      description: Include OS, terrain size/resolution, CRS or elevation units, receiving GIS, offline/portable requirements, and data compatibility needs where relevant. Avoid private locations.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives or current workaround
+      description: What else have you tried? A proposed implementation is welcome, but not required.
+  - type: textarea
+    id: validation
+    attributes:
+      label: Example or validation idea
+      description: Suggest a synthetic example, interaction sequence, or measurable acceptance criterion. Include sources and redistribution rights for any external material.

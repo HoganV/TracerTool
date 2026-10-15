@@ -1,0 +1,139 @@
+name: Tests and portable builds
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      build_portable:
+        description: Build and verify portable apps
+        type: boolean
+        default: false
+      upload_portable:
+        description: Upload binaries only after the distribution review in docs/PUBLISHING.md
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  public-readiness:
+    name: Public source readiness
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Audit tracked files and complete reachable history
+        run: python scripts/check_publication.py --history
+
+  test:
+    name: Tests (${{ matrix.os }}, Python ${{ matrix.python }})
+    needs: public-readiness
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python: '3.11'
+          - os: ubuntu-latest
+            python: '3.12'
+          - os: windows-latest
+            python: '3.13'
+    runs-on: ${{ matrix.os }}
+    env:
+      QT_QPA_PLATFORM: offscreen
+      PIP_DISABLE_PIP_VERSION_CHECK: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Linux Qt runtime libraries
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libegl1 libopengl0 libxcb-cursor0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            scripts/windows-build-constraints.txt
+      - name: Install application and test tools
+        if: runner.os != 'Windows'
+        run: python -m pip install -e ".[dev]"
+      - name: Install pinned Windows application and test tools
+        if: runner.os == 'Windows'
+        run: python -m pip install -c scripts/windows-build-constraints.txt -e ".[dev]"
+      - name: Check dependency consistency
+        run: python -m pip check
+      - name: Unit and integration tests
+        run: python -m pytest -q
+      - name: Desktop smoke test
+        run: python -m tracertool --smoke-test
+
+  portable:
+    name: Portable (${{ matrix.os }})
+    needs: test
+    if: github.event_name == 'workflow_dispatch' && inputs.build_portable
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python: '3.12'
+          - os: windows-latest
+            python: '3.13'
+    runs-on: ${{ matrix.os }}
+    env:
+      QT_QPA_PLATFORM: offscreen
+      PIP_DISABLE_PIP_VERSION_CHECK: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Linux Qt runtime libraries
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libegl1 libopengl0 libxcb-cursor0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            scripts/windows-build-constraints.txt
+      - name: Install build environment
+        if: runner.os != 'Windows'
+        run: python -m pip install -e ".[dev]"
+      - name: Install pinned Windows build environment
+        if: runner.os == 'Windows'
+        run: python -m pip install -c scripts/windows-build-constraints.txt -e ".[dev]"
+      - name: Check dependency consistency
+        run: python -m pip check
+      - name: Build and smoke-test native portable app
+        run: python scripts/build_portable.py
+      - name: Verify extracted portable archive
+        run: python -c "import glob, subprocess, sys; archives = glob.glob('dist/*-portable.zip'); assert archives; [subprocess.run([sys.executable, 'scripts/verify_portable.py', p], check=True) for p in archives]"
+      # A public-repository Actions artifact is distribution too. Review first.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: inputs.upload_portable
+        with:
+          name: TracerTool-${{ runner.os }}-portable
+          path: |
+            dist/*-portable.zip
+            dist/*-portable.zip.sha256
+          if-no-files-found: error
+          include-hidden-files: false
+          compression-level: 0
+          retention-days: 14

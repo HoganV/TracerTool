@@ -1,0 +1,78 @@
+name: Bug report
+description: Report a reproducible application, tracing, or export problem.
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Search existing issues first. For suspected security vulnerabilities, follow SECURITY.md rather than posting details here.
+        Use synthetic examples. Do not attach employer/client TIFFs, projects, exports, credentials, or screenshots revealing private locations.
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: Include the application version and, if known, the build or commit identifier.
+      placeholder: "0.2.0 portable build, or a source commit"
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS/version, portable ZIP or source install, and Python version if applicable. Distinguish native Windows from Wine. For display issues, include display scaling.
+    validations:
+      required: true
+  - type: dropdown
+    id: workflow
+    attributes:
+      label: Affected workflow
+      options:
+        - Open or view terrain
+        - Trace or inspect line quality
+        - Edit an existing line
+        - Save, reopen, or recover a project
+        - Export lines or reproject terrain
+        - Start or package the application
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Include the tool, preset or parameter values, guide placement, and sequence of actions. A small synthetic fixture or generation script is ideal.
+      placeholder: |
+        1. Open a synthetic terrain with ...
+        2. Choose ... and set ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual behavior
+      description: Explain the difference, including any error text or incorrect geometry. State whether work was lost and whether a saved project or recovery snapshot remains.
+    validations:
+      required: true
+  - type: textarea
+    id: terrain
+    attributes:
+      label: Terrain and GIS details, if relevant
+      description: Share non-sensitive metadata only. Unknown values are fine; an actual terrain upload is not required.
+      placeholder: |
+        Source CRS and horizontal units:
+        Source pixel size, dimensions, and working-grid resolution:
+        Elevation units, dtype, band scale/offset, and NoData representation:
+        Export format, target CRS, explicit Z multiplier, and receiving GIS/version:
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Redacted evidence, if available
+      description: Paste relevant error text, a synthetic reproduction, or a sanitized screenshot. Remove private paths, identifiers, and real site coordinates first.
+  - type: checkboxes
+    id: sharing
+    attributes:
+      label: Sharing check
+      options:
+        - label: I checked this report and its attachments for private or unauthorized material.
+          required: true

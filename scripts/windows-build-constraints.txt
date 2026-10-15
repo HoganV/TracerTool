@@ -1,0 +1,34 @@
+# Resolved Windows CPython 3.13 build environment, 2026-10-14.
+# Qt 6.9.3 avoids Qt 6.12's OS ICU requirement in the local Wine build host.
+# Apply with pip -c; these are release build constraints, not public API bounds.
+affine==3.0.1
+altgraph==0.17.5
+attrs==26.1.0
+certifi==2026.7.22
+click==8.5.0
+colorama==0.4.6
+ImageIO==2.38.1
+iniconfig==2.3.1
+lazy-loader==0.6
+networkx==3.7
+numpy==2.5.4
+packaging==26.3
+pefile==2024.8.26
+pillow==12.3.0
+pluggy==1.6.0
+Pygments==2.21.0
+pyinstaller==6.22.3
+pyinstaller-hooks-contrib==2026.8
+pyparsing==3.3.3
+pyshp==3.1.6
+PySide6==6.9.3
+PySide6_Addons==6.9.3
+PySide6_Essentials==6.9.3
+pytest==9.1.1
+pywin32-ctypes==0.2.3
+rasterio==1.5.2
+scikit-image==0.26.0
+scipy==1.18.1
+setuptools==84.0.0
+shiboken6==6.9.3
+tifffile==2026.9.20
