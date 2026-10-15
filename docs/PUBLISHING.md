@@ -80,8 +80,9 @@ Pushes and pull requests run the committed-snapshot and complete-history
 publication audit before tests, including filename and commit/tag/ref metadata
 checks. That job uses `fetch-depth: 0`. The test matrix covers Python 3.11 and 3.12 on
 Linux, and Python 3.13/3.14 on Windows. It checks installed dependency consistency,
-the synthetic/Qt suite and the generated-terrain desktop smoke scenario. These
-original 3.11/3.12/3.13 jobs passed in the first public source run; the exact commit, job
+the synthetic/Qt suite and the generated-terrain desktop smoke scenario. The
+original 3.11/3.12/3.13 jobs passed in the first public source run; Python 3.14.7
+also passed after the 0.2.1 compatibility update. Exact commits, job
 results and verification boundaries are recorded in [VALIDATION.md](VALIDATION.md).
 
 The workflow uses read-only repository permissions, does not persist checkout

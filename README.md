@@ -99,7 +99,7 @@ panel reports actual minimum/median/maximum spacing.
 
 ## Implemented scope and future work
 
-| Capability | v0.2.0 scope |
+| Capability | v0.2.1 scope |
 |---|---|
 | Terrain viewing | Single-band TIFF; elevation colors, hillshade, slope and elevation views; display palettes/stretch/gamma, multidirectional shade, contours, pan/zoom and CRS metadata. |
 | Assisted lines | Anchor-guided stream, ridge crest and slope-break candidates; bounded line smoothing, fresh arc-length sampling, levee preset, manual lines and preview before acceptance. |

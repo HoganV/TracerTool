@@ -13,8 +13,9 @@ reference terrain and critical visual feedback, including the need for smoother
 lines and wider vertex spacing on levees. The agents used that feedback to
 revise the implementation and exercise the software.
 
-This disclosure describes the initial development through version 0.2.0 and
-the subsequent public-repository preparation. It does not claim that every
+This disclosure describes the initial development through version 0.2.0,
+the subsequent public-repository preparation, and the AI-assisted 0.2.1
+Python 3.14 compatibility update. It does not claim that every
 line was reviewed by a human, that an independent engineer audited the code,
 or that generated tests establish surveying or hydraulic accuracy. Tests and
 their expected results were also largely developed by AI agents.

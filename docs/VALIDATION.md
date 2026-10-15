@@ -1,5 +1,31 @@
 # Validation record
 
+## 0.2.1 — Windows Python 3.14 installation
+
+The [Python 3.14 compatibility workflow](https://github.com/HoganV/TracerTool/actions/runs/38773225094)
+passed on 2026-10-15 for commit
+`d7221e41a490ee6c5da19002cfe7c24fef07843c`:
+
+| Hosted environment | Qt/PySide6 | Automated suite |
+|---|---|---|
+| Windows Server 2025, Python 3.14.7 x64 | 6.10.3 | 311 passed in 48.45 seconds. |
+| Windows Server 2025, Python 3.13.16 x64 | 6.9.3 | 311 passed in 46.27 seconds. |
+| Linux, Python 3.12 | 6.12.0 | 311 passed in 23.65 seconds. |
+| Linux, Python 3.11 | 6.12.0 | 311 passed in 24.27 seconds; 152 warnings. |
+
+All four environments passed dependency installation, `pip check`, and the
+startup smoke test. Runtime output confirms the exact Windows interpreter and
+Qt versions above. The complete-history publication audit passed. A local
+Linux regression run also passed all 311 tests in 32.63 seconds.
+
+These are source-installation checks with Qt's offscreen platform, not an
+interactive test on the recipient's work machine. No 0.2.1 portable package
+was built or published. Historical 0.2.0 portable evidence below does not
+establish a Python 3.14 frozen build. Terrain algorithms and project schema
+are unchanged in this patch.
+
+## 0.2.0 desktop baseline
+
 **Version 0.2.0 desktop snapshot:** the source suite passed 287 tests on Linux and
 287 tests with Windows Python/Qt under Wine. The line-quality comparisons and
 native desktop exercises are recorded below. Archives labeled `interim` are
