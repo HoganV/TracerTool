@@ -79,9 +79,9 @@ describes authentication, empty-repository creation and the remote/push flow.
 Pushes and pull requests run the committed-snapshot and complete-history
 publication audit before tests, including filename and commit/tag/ref metadata
 checks. That job uses `fetch-depth: 0`. The test matrix covers Python 3.11 and 3.12 on
-Linux, and Python 3.13 on Windows. It checks installed dependency consistency,
+Linux, and Python 3.13/3.14 on Windows. It checks installed dependency consistency,
 the synthetic/Qt suite and the generated-terrain desktop smoke scenario. These
-hosted jobs passed in the first public source run; the exact commit, job
+original 3.11/3.12/3.13 jobs passed in the first public source run; the exact commit, job
 results and verification boundaries are recorded in [VALIDATION.md](VALIDATION.md).
 
 The workflow uses read-only repository permissions, does not persist checkout

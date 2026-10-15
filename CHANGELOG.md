@@ -1,10 +1,13 @@
 # Changelog
 
-## Documentation updates after 0.2.0
+## 0.2.1 — Windows Python 3.14 installation, 2026-10-15
 
-- Clarified the tested Python versions and the Python 3.13 Windows setup;
-  added recovery instructions for an existing Python 3.14 environment that
-  conflicts with the pinned PySide6 6.9.3 dependency.
+- Fixed the Windows constraints to select PySide6, Addons, Essentials and
+  Shiboken 6.10.3 for Python 3.14, preserving the recorded Python 3.13 pins.
+- Added Windows Python 3.14 to the automated installation, dependency,
+  integration and startup checks, with explicit runtime version reporting.
+- Updated Windows instructions to reuse an existing Python 3.14 environment
+  after the failed install. Terrain algorithms and project schema are unchanged.
 
 ## 0.2.0 — local desktop build, 2026-10-15
 

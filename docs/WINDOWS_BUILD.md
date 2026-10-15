@@ -19,6 +19,11 @@ Windows CI job or a real Windows development host for regular releases.
   absent from this Wine environment. This is an explicit build constraint,
   not a claim that Qt 6.12 is defective on supported Windows installations.
 
+Starting with 0.2.1, the same constraint file also selects Qt/PySide 6.10.3
+on Python 3.14 for source installations. The historical 3.13 pins above are
+preserved. Python 3.14 source CI does not establish a tested 3.14 portable
+package or extend these Wine results; portable CI continues to use 3.13.
+
 All tools, wheels, Wine prefixes and diagnostic logs are under ignored
 `build/windows-toolchain/`. No Wine component is shipped in the application.
 No reference TIFF is uploaded or included in a portable ZIP.

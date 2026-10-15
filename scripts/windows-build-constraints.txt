@@ -1,5 +1,6 @@
-# Resolved Windows CPython 3.13 build environment, 2026-10-14.
-# Qt 6.9.3 avoids Qt 6.12's OS ICU requirement in the local Wine build host.
+# Windows CPython 3.13/3.14 environments, 2026-10-15.
+# Preserve Qt 6.9.3 for the recorded Python 3.13/Wine build.
+# Python 3.14 needs Qt >=6.10.1; keep the four Qt distributions in sync.
 # Apply with pip -c; these are release build constraints, not public API bounds.
 affine==3.0.1
 altgraph==0.17.5
@@ -21,14 +22,18 @@ pyinstaller==6.22.3
 pyinstaller-hooks-contrib==2026.8
 pyparsing==3.3.3
 pyshp==3.1.6
-PySide6==6.9.3
-PySide6_Addons==6.9.3
-PySide6_Essentials==6.9.3
+PySide6==6.9.3; python_version < "3.14"
+PySide6==6.10.3; python_version == "3.14"
+PySide6_Addons==6.9.3; python_version < "3.14"
+PySide6_Addons==6.10.3; python_version == "3.14"
+PySide6_Essentials==6.9.3; python_version < "3.14"
+PySide6_Essentials==6.10.3; python_version == "3.14"
 pytest==9.1.1
 pywin32-ctypes==0.2.3
 rasterio==1.5.2
 scikit-image==0.26.0
 scipy==1.18.1
 setuptools==84.0.0
-shiboken6==6.9.3
+shiboken6==6.9.3; python_version < "3.14"
+shiboken6==6.10.3; python_version == "3.14"
 tifffile==2026.9.20

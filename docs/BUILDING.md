@@ -2,18 +2,28 @@
 
 ## Source checkout
 
-The package minimum is Python 3.11. Hosted checks cover Python 3.11/3.12 on
-Linux and 3.13 on Windows; this is not a claim of compatibility with every
-newer Python release. The recorded release environments use Python 3.12 on
-Linux and 3.13 on Windows. For the pinned Windows setup, install **64-bit
-Python 3.13** from [Python's Windows downloads](https://www.python.org/downloads/windows/):
+The package minimum is Python 3.11. The CI matrix covers Python 3.11/3.12 on
+Linux and 3.13/3.14 on Windows; see [recorded results](VALIDATION.md). This is
+not a claim of compatibility with every newer Python release. The historical
+0.2.0 portable environments used Python 3.12 on Linux and 3.13 on Windows.
+For Windows source use, **64-bit Python 3.14 or 3.13** is supported. For a new
+3.14 environment ([Python downloads](https://www.python.org/downloads/windows/)):
 
 ```powershell
-py -3.13 -m venv .venv
+py -3.14 -m venv .venv
 .venv\Scripts\python --version
 .venv\Scripts\python -m pip install -c scripts/windows-build-constraints.txt -e ".[dev]"
 .venv\Scripts\python -m tracertool
 ```
+
+For 3.13, replace `py -3.14` with `py -3.13`. The constraint file automatically
+selects Qt/PySide6 6.10.3 on Python 3.14 and 6.9.3 on Python 3.13. All four Qt
+packages use matching versions. Python 3.15 and free-threaded Python builds
+have not been tested. These commands target standard x64 CPython.
+Use Python **3.14.2 or newer** when choosing a 3.14 patch release. NetworkX
+excludes 3.14.1 because of an upstream CPython dataclasses regression, fixed
+in 3.14.2; see [NetworkX's compatibility note](https://github.com/networkx/networkx/pull/8372).
+Do not bypass that restriction by forcing an older NetworkX package.
 
 On Linux:
 
@@ -43,29 +53,25 @@ path during dependency discovery; it is not expected on recipient computers.
 
 ### Windows Python version mismatch
 
-If pip downloads wheels containing `cp314` and reports that the constraint
-`PySide6==6.9.3` has no matching distribution, the environment uses Python 3.14.
-[PySide6 6.9.3 requires Python below 3.14](https://pypi.org/project/PySide6/6.9.3/).
-Installing Python 3.13 does not change an existing virtual environment.
-
-Close TracerTool and open a fresh PowerShell in the cloned repository folder.
-First run `py -3.13 --version`. If Python 3.13 is unavailable, install its
-64-bit Windows version using the link above, then reopen PowerShell.
-Once that check reports 3.13.x, rebuild the failed environment and launch:
+If pip downloads `cp314` wheels but reports that `PySide6==6.9.3` has no
+matching distribution, the checkout still has the old Python 3.13-only
+constraint. [PySide6 6.10.3 supports Python 3.14](https://pypi.org/project/PySide6/6.10.3/).
+Version 0.2.1 fixes selection without changing Python or deleting the existing
+environment. Close TracerTool, then run from the cloned repository folder:
 
 ```powershell
-py -3.13 -m venv --clear .venv
+git pull --ff-only
 .\.venv\Scripts\python.exe --version
-.\.venv\Scripts\python.exe -m pip install -c scripts/windows-build-constraints.txt -e .
+.\.venv\Scripts\python.exe -m pip install --upgrade -c scripts/windows-build-constraints.txt -e .
+.\.venv\Scripts\python.exe -m pip check
 .\.venv\Scripts\python.exe -m tracertool
 ```
 
-`--clear` replaces only the `.venv` environment folder and its installed
-packages. Keep terrain and project files outside that folder. The version
-check must report 3.13.x before installing dependencies. No environment
+The version check should report 3.14.x (3.13.x is also supported). If `.venv`
+does not exist, create it with `py -3.14 -m venv .venv` first. No environment
 activation or PowerShell execution-policy change is needed. The final command
-is all that is needed for later launches; `.[dev]` is optional for testing and
-packaging, rather than normal use. Python 3.14 can remain installed separately.
+is all that is needed for later launches. `.[dev]` is optional for testing and
+packaging, rather than normal use. Keep terrain and projects outside `.venv`.
 
 ## Verification
 

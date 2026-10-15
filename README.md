@@ -6,7 +6,7 @@ anchors, review a terrain-guided path, edit the result, and export 3D shapefiles
 The application is independent of ArcGIS and uses Python, PySide6, Rasterio,
 SciPy and scikit-image. Original code and documentation are MIT licensed.
 
-**Status: v0.2.0 local desktop build.** The complete workflow covers terrain
+**Status: v0.2.1 local desktop build.** The complete workflow covers terrain
 viewing, assisted tracing, hand corrections, local retracing, recovery, project
 saves and GIS export. Linux desktop checks, Windows executable checks under
 Wine, and Windows/Linux GitHub tests are recorded separately in
@@ -43,20 +43,23 @@ python3 -m venv .venv
 .venv/bin/python -m tracertool
 ```
 
-Windows PowerShell source checkout (install **64-bit Python 3.13** first):
+Windows PowerShell source checkout (**64-bit Python 3.14**; 3.13 also supported):
 
 ```powershell
-py -3.13 -m venv .venv
+py -3.14 -m venv .venv
 .venv\Scripts\python --version
 .venv\Scripts\python -m pip install -c scripts/windows-build-constraints.txt -e ".[dev]"
 .venv\Scripts\python -m tracertool
 ```
 
-The version check above must report **Python 3.13.x**. The pinned Windows
-PySide6 6.9.3 dependency excludes Python 3.14 and later. If an existing `.venv`
-uses another version, follow the [Windows environment recovery steps](docs/BUILDING.md#windows-python-version-mismatch).
-The package minimum is Python 3.11; hosted checks cover Linux 3.11/3.12 and
-Windows 3.13, not every newer Python release.
+The version check above should report **Python 3.14.x**. For Python 3.13, use
+`py -3.13` in the first command. The constraints select PySide6 6.10.3 on 3.14
+and preserve 6.9.3 on 3.13. If a previous installation failed on Python 3.14,
+see [Windows environment recovery](docs/BUILDING.md#windows-python-version-mismatch).
+Use 3.14.2 or newer when selecting a 3.14 patch; a dependency excludes 3.14.1
+because of a Python bug (details in the build guide).
+The package minimum is Python 3.11; the CI matrix covers Linux 3.11/3.12 and
+Windows 3.13/3.14. Recorded results are in [VALIDATION.md](docs/VALIDATION.md).
 
 From an installed checkout, `python scripts/run.py`
 also launches it. An optional TIFF or project path opens that file at startup.
