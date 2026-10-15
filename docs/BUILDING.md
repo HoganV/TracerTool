@@ -2,11 +2,15 @@
 
 ## Source checkout
 
-The app supports Python 3.11 or later. The recorded release environments use
-Python 3.12 on Linux and 3.13 on Windows. On Windows:
+The package minimum is Python 3.11. Hosted checks cover Python 3.11/3.12 on
+Linux and 3.13 on Windows; this is not a claim of compatibility with every
+newer Python release. The recorded release environments use Python 3.12 on
+Linux and 3.13 on Windows. For the pinned Windows setup, install **64-bit
+Python 3.13** from [Python's Windows downloads](https://www.python.org/downloads/windows/):
 
 ```powershell
 py -3.13 -m venv .venv
+.venv\Scripts\python --version
 .venv\Scripts\python -m pip install -c scripts/windows-build-constraints.txt -e ".[dev]"
 .venv\Scripts\python -m tracertool
 ```
@@ -36,6 +40,32 @@ directory at `.venv/native/usr/lib/x86_64-linux-gnu` and starts a new Python
 process with that library path. This supports the local desktop without
 requiring a system package installation. The portable builder uses the same
 path during dependency discovery; it is not expected on recipient computers.
+
+### Windows Python version mismatch
+
+If pip downloads wheels containing `cp314` and reports that the constraint
+`PySide6==6.9.3` has no matching distribution, the environment uses Python 3.14.
+[PySide6 6.9.3 requires Python below 3.14](https://pypi.org/project/PySide6/6.9.3/).
+Installing Python 3.13 does not change an existing virtual environment.
+
+Close TracerTool and open a fresh PowerShell in the cloned repository folder.
+First run `py -3.13 --version`. If Python 3.13 is unavailable, install its
+64-bit Windows version using the link above, then reopen PowerShell.
+Once that check reports 3.13.x, rebuild the failed environment and launch:
+
+```powershell
+py -3.13 -m venv --clear .venv
+.\.venv\Scripts\python.exe --version
+.\.venv\Scripts\python.exe -m pip install -c scripts/windows-build-constraints.txt -e .
+.\.venv\Scripts\python.exe -m tracertool
+```
+
+`--clear` replaces only the `.venv` environment folder and its installed
+packages. Keep terrain and project files outside that folder. The version
+check must report 3.13.x before installing dependencies. No environment
+activation or PowerShell execution-policy change is needed. The final command
+is all that is needed for later launches; `.[dev]` is optional for testing and
+packaging, rather than normal use. Python 3.14 can remain installed separately.
 
 ## Verification
 

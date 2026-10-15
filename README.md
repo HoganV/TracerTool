@@ -43,15 +43,22 @@ python3 -m venv .venv
 .venv/bin/python -m tracertool
 ```
 
-Windows PowerShell source checkout:
+Windows PowerShell source checkout (install **64-bit Python 3.13** first):
 
 ```powershell
 py -3.13 -m venv .venv
+.venv\Scripts\python --version
 .venv\Scripts\python -m pip install -c scripts/windows-build-constraints.txt -e ".[dev]"
 .venv\Scripts\python -m tracertool
 ```
 
-Use Python 3.11 or later. From an installed checkout, `python scripts/run.py`
+The version check above must report **Python 3.13.x**. The pinned Windows
+PySide6 6.9.3 dependency excludes Python 3.14 and later. If an existing `.venv`
+uses another version, follow the [Windows environment recovery steps](docs/BUILDING.md#windows-python-version-mismatch).
+The package minimum is Python 3.11; hosted checks cover Linux 3.11/3.12 and
+Windows 3.13, not every newer Python release.
+
+From an installed checkout, `python scripts/run.py`
 also launches it. An optional TIFF or project path opens that file at startup.
 For a reproducible example, run the following using the installed environment
 (`.venv/bin/python` on Linux or `.venv\Scripts\python` on Windows):

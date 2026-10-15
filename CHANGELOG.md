@@ -1,5 +1,11 @@
 # Changelog
 
+## Documentation updates after 0.2.0
+
+- Clarified the tested Python versions and the Python 3.13 Windows setup;
+  added recovery instructions for an existing Python 3.14 environment that
+  conflicts with the pinned PySide6 6.9.3 dependency.
+
 ## 0.2.0 — local desktop build, 2026-10-15
 
 - Prepared a sanitized public source snapshot, explicit AI development disclosure,
