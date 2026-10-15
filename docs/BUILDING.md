@@ -89,8 +89,10 @@ Wine checks are separate from clean Windows acceptance. The included
 GitHub Actions workflow runs Windows/Linux source checks and creates native
 portable builds only on manual dispatch. Binary artifact upload is a separate,
 default-off choice after distribution review; see [PUBLISHING.md](PUBLISHING.md).
-It does not publish a release. No successful Windows CI run or clean Windows acceptance test is
-claimed merely because this workflow exists. [PyInstaller documentation](https://pyinstaller.org/en/latest/)
+It does not publish a release. The first hosted source checks passed on Windows
+and Linux; see [VALIDATION.md](VALIDATION.md). Interactive Windows and frozen
+Windows package acceptance remain separate checks.
+[PyInstaller documentation](https://pyinstaller.org/en/latest/)
 
 `scripts/tracertool.spec` collects Rasterio resources and extension modules,
 including sibling DLL directories from Windows delvewheel builds, the required

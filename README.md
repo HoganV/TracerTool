@@ -8,9 +8,10 @@ SciPy and scikit-image. Original code and documentation are MIT licensed.
 
 **Status: v0.2.0 local desktop build.** The complete workflow covers terrain
 viewing, assisted tracing, hand corrections, local retracing, recovery, project
-saves and GIS export. Linux desktop checks and Windows executable checks under
-Wine are recorded separately in [VALIDATION.md](docs/VALIDATION.md). Clean
-Windows, target-GIS and operator accuracy acceptance remain outstanding; the
+saves and GIS export. Linux desktop checks, Windows executable checks under
+Wine, and Windows/Linux GitHub tests are recorded separately in
+[VALIDATION.md](docs/VALIDATION.md). Interactive Windows, target-GIS and operator
+accuracy acceptance remain outstanding; the
 release does not claim survey accuracy or automatic hydrologic correctness.
 
 **AI development disclosure:** the initial code, tests and documentation were

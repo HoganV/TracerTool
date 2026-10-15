@@ -23,7 +23,7 @@ their expected results were also largely developed by AI agents.
 
 The [validation record](docs/VALIDATION.md) identifies the environments, tests,
 format read-back checks and actual desktop interactions performed. It also
-identifies missing evidence: native Windows acceptance, target-GIS handoff,
+identifies missing evidence: interactive Windows acceptance, target-GIS handoff,
 independent labeled geometry and measured operator productivity. Passing tests
 and attractive examples are narrower evidence than those missing checks.
 

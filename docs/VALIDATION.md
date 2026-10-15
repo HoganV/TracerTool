@@ -17,8 +17,8 @@ The subsequent public-source preparation passed **311 tests on Linux** in
 32.96 seconds, and **303 tests with 8 skips under Windows Python/Qt in Wine**
 in 40.67 seconds. The eight skips require Git, which is absent from that
 isolated Windows toolchain; all corresponding repository checks passed on
-Linux. GitHub-hosted Windows has a configured test job, but no hosted run has
-yet been performed.
+Linux. Subsequent GitHub-hosted checks also passed on Windows and Linux, as
+recorded below.
 
 The additional checks cover a deterministic synthetic levee/stream demo,
 source elevations, geometry and screenshot generation, plus public-file and
@@ -34,6 +34,27 @@ uses a separate sanitized history as described in [PUBLISHING.md](PUBLISHING.md)
 The README image is a real Qt capture of the generated synthetic fixture. It
 contains no private terrain and makes no positional-accuracy claim.
 
+## First GitHub-hosted source verification
+
+The [first public workflow run](https://github.com/HoganV/TracerTool/actions/runs/38771382982)
+passed on 2026-10-15 for source commit
+`abcb1612db86cb57c51afdf104def654f5007b51`:
+
+| Hosted environment | Automated suite |
+|---|---|
+| Windows, Python 3.13 | 311 passed in 46.45 seconds, including the Git-dependent checks. |
+| Linux, Python 3.11 | 311 passed in 23.08 seconds; 152 warnings reported. |
+| Linux, Python 3.12 | 311 passed in 21.71 seconds. |
+
+All three jobs also passed dependency consistency and the application startup
+smoke test. The complete-history public-source audit passed. Portable-build
+jobs were skipped, as configured for ordinary pushes; this run published no
+binary artifacts.
+
+These source tests used Qt's offscreen mode. Windows runner success is evidence
+of native Windows automated execution, not interactive desktop acceptance or
+a clean extracted Windows portable-package test. Those gates remain open.
+
 ## Evidence categories
 
 | Environment/check | Result and boundary |
@@ -44,7 +65,7 @@ contains no private terrain and makes no positional-accuracy claim.
 | Windows portable executable | Actual PE32+ GUI x86-64 executable built using Windows PyInstaller. Frozen and clean-extracted smoke tests passed under Wine 11; bundled Qt platform plugin, PROJ database and CPython license verified. |
 | Independent format reader | GDAL `ogrinfo` confirmed demonstration shapefile geometry, feature count, CRS units and fields. |
 | Revised levee geometry | Same-guide comparisons: straight levee 620→203 vertices, median spacing 7.97 cells; curved levee 580→174, median 7.88. All revised edges ≥5 cells in these two cases; imagery/vertex overlays visually inspected. |
-| Clean Windows desktop | Not performed on a real Windows host. Wine does not satisfy this gate. |
+| Interactive Windows desktop | Not performed. Hosted Windows offscreen tests and Wine do not satisfy this gate. |
 | QGIS / ArcGIS Pro handoff | Not performed; independent GDAL read is narrower evidence. |
 | Operator-reviewed positional accuracy | Not measured; no labeled reference geometry supplied. |
 
@@ -195,8 +216,8 @@ The initial Linux host lacked `libxcb-cursor.so.0`, which Qt's XCB plugin needs.
 A local copy extracted from the distribution's package enables this host's
 desktop session; `scripts/run.py` discovers it, and the CI workflow installs
 the corresponding system package. The initial offscreen smoke result did not
-depend on it. The CI workflow has not been run remotely; its configuration is
-not reported as CI evidence.
+depend on it. At that initial baseline the CI workflow had not run remotely;
+the later successful hosted source run is recorded separately above.
 
 ## Windows compatibility-layer build and tests
 
