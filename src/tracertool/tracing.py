@@ -387,6 +387,48 @@ def _smooth_vectors(path, mask, cost, radius, terrain_weight, cancel=None):
     return current.tolist()
 
 
+def _profile_support_cost(cost, mask, centers, tangent, offsets):
+    """Mean longitudinal evidence connected to each candidate's center.
+
+    A raster edge permits one-sided support. NoData stops support in that
+    direction: neither samples across a gap nor diagonal corner crossings can
+    contribute to the candidate's score.
+    """
+    centers = np.asarray(centers, dtype=float)
+    probes = centers[:, None, :] + offsets[None, :, None] * tangent
+    values = ndimage.map_coordinates(cost, probes.reshape(-1, 2).T,
+                                    order=0, mode='constant', cval=np.inf).reshape(len(centers), -1)
+    middle = len(offsets) // 2  # The odd, symmetric sampling includes offset zero.
+    finite = np.isfinite(values)
+    left = np.logical_and.accumulate(finite[:, :middle + 1][:, ::-1], axis=1)[:, ::-1]
+    right = np.logical_and.accumulate(finite[:, middle:], axis=1)
+    connected = np.concatenate((left, right[:, 1:]), axis=1)
+    if not mask.all():
+        # Finite probes alone can miss a diagonal touching an invalid corner.
+        # Check the full support segment, shortening only the obstructed side.
+        for index, center in enumerate(centers):
+            if not connected[index, middle]:
+                continue
+            for step in (-1, 1):
+                indices = np.arange(middle + step, len(offsets) if step > 0 else -1, step)
+                indices = indices[connected[index, indices]]
+                if not len(indices) or _segment_valid(mask, center, probes[index, indices[-1]]):
+                    continue
+                low, high = 0, len(indices)
+                while low < high:
+                    trial = (low + high + 1) // 2
+                    if _segment_valid(mask, center, probes[index, indices[trial - 1]]):
+                        low = trial
+                    else:
+                        high = trial - 1
+                connected[index, indices[low:]] = False
+    counts = connected.sum(axis=1)
+    # Retain at least the former three-probe evidence requirement, while
+    # allowing those probes to lie on the available side of an edge or gap.
+    return np.divide(np.where(connected, values, 0.).sum(axis=1), counts,
+                     out=np.full(len(centers), np.inf), where=counts >= 3)
+
+
 def _relax_guides(terrain, points, kind, params, fixed, cancel=None):
     """Move rough guides across their local direction toward feature evidence.
 
@@ -429,19 +471,23 @@ def _relax_guides(terrain, points, kind, params, fixed, cancel=None):
             continue
         # Include the original cell explicitly, even for an oblique cross-section.
         candidates = np.unique(np.vstack((point, candidates)), axis=0)
-        r0, c0 = np.maximum(candidates.min(axis=0) - 6, 0)
-        r1, c1 = np.minimum(candidates.max(axis=0) + 7, (terrain.height, terrain.width))
+        # Assess a short continuing feature, not just the three cells around
+        # a point. A tiny sharp shoulder bump can otherwise outrank a broad
+        # continuous crest (or a small pit outrank a channel) through local
+        # curvature alone. Keep this support independent of search radius and
+        # shorten it near closely spaced guides so it does not span a bend.
+        support_radius = min(8., min(lengths) * .25)
+        longitudinal = np.linspace(-support_radius, support_radius,
+                                   2 * max(1, math.ceil(support_radius)) + 1)
+        padding = math.ceil(support_radius) + 5
+        r0, c0 = np.maximum(candidates.min(axis=0) - padding, 0)
+        r1, c1 = np.minimum(candidates.max(axis=0) + padding + 1, (terrain.height, terrain.width))
         bounds = (int(r0), int(r1), int(c0), int(c1))
         cost = _cost(terrain, bounds, kind, params, tangent, cancel=cancel)
         local_mask = terrain.valid[r0:r1, c0:c1]
         cost[~local_mask] = np.inf
-        # Three-cell longitudinal support avoids moving a guide onto an isolated
-        # single-cell pit or spike at the expense of the continuing landform.
-        probes = candidates[:, None, :] + np.array([-1., 0., 1.])[None, :, None] * tangent
-        probes -= np.array([r0, c0])
-        support = ndimage.map_coordinates(cost, probes.reshape(-1, 2).T,
-                                          order=0, mode='constant', cval=np.inf).reshape(-1, 3)
-        score = np.mean(support, axis=1)
+        support = _profile_support_cost(cost, local_mask, candidates - [r0, c0], tangent, longitudinal)
+        score = support.copy()
         distance = np.linalg.norm(candidates - point, axis=1)
         score += .4 * np.square(distance / max(radius, 1.)) + .01 * distance
         original = int(np.flatnonzero(np.all(candidates == point, axis=1))[0])
@@ -455,11 +501,8 @@ def _relax_guides(terrain, points, kind, params, fixed, cancel=None):
             # ground away from an isolated pit, or pick an arbitrary shoulder
             # in a smooth parabola when slope-break mode has no discrete edge.
             cross = candidates[selected] + np.array([-4., 4.])[:, None] * normal
-            probes = cross[:, None, :] + np.array([-1., 0., 1.])[None, :, None] * tangent
-            probes -= np.array([r0, c0])
-            sides = ndimage.map_coordinates(cost, probes.reshape(-1, 2).T,
-                                            order=0, mode='constant', cval=np.inf).reshape(2, 3).mean(axis=1)
-            if np.isfinite(sides).all() and np.all(sides > support[selected].mean() + .01):
+            sides = _profile_support_cost(cost, local_mask, cross - [r0, c0], tangent, longitudinal)
+            if np.isfinite(sides).all() and np.all(sides > support[selected] + .01):
                 output[index] = tuple(int(v) for v in candidates[selected])
     return output
 

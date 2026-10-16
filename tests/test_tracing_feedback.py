@@ -237,6 +237,92 @@ def test_default_stream_preserves_real_pit_and_warns_about_uphill_exit(tmp_path)
     assert any('pit or flat' in message for message in downhill.warnings)
 
 
+@pytest.mark.parametrize('kind,sign', [('ridge', 1), ('stream', -1)])
+@pytest.mark.parametrize('short_feature_length', [1., 2., 3.])
+@pytest.mark.parametrize('anomaly_row', [20, 85, 150])
+def test_rough_guides_stay_on_continuing_landform_instead_of_isolated_shoulder_feature(
+        tmp_path, kind, sign, short_feature_length, anomaly_row):
+    rows, cols = np.mgrid[:180, :160]
+    # A broad 10-unit levee/channel continues throughout the raster. A tiny
+    # 0.5-unit bump/pit sits on the neighboring flat: its sharp local curvature
+    # must not pull one rough guide 45 cells away from the continuous feature.
+    continuous = 10 * np.clip((16 - abs(cols - 90)) / 8, 0, 1)
+    isolated = .5 * np.exp(-.5 * ((cols - 45) / 1.5) ** 2)
+    isolated *= np.exp(-.5 * ((rows - anomaly_row) / short_feature_length) ** 2)
+    terrain = make_terrain(tmp_path, 100 + sign * (continuous + isolated))
+    result = trace(terrain, [(20, 72), (85, 72), (150, 72)], kind, TraceParams(corridor=30))
+    cells = np.asarray(result.cells)
+    assert np.max(abs(cells[:, 1] - 90)) <= 1
+    assert result.cells[0] == [20, 90] and result.cells[-1] == [150, 90]
+    assert result.metrics['relaxed_guide_count'] == 3
+    assert result.metrics['length'] == pytest.approx(130, abs=1)
+    assert result.metrics['spacing_median_pixels'] >= 2.9
+    assert result.metrics['spacing_max_pixels'] <= 3 + 1e-8
+    # The original elevations remain intact; a constant-height crest or
+    # channel floor must not develop an endpoint climb/drop into the shoulder.
+    assert np.ptp(np.asarray(result.coordinates)[:, 2]) < .01
+    validate_segments(terrain, result.coordinates)
+
+
+@pytest.mark.parametrize('kind,sign', [('ridge', -1), ('stream', 1)])
+@pytest.mark.parametrize('first,last', [(0, 99), (3, 96)])
+def test_longitudinal_evidence_can_be_one_sided_at_raster_edges(tmp_path, kind, sign, first, last):
+    rows, cols = np.mgrid[:100, :100]
+    terrain = make_terrain(tmp_path, sign * (cols - 50) ** 2 / 8 + (100 - rows) * .1)
+    result = trace(terrain, [(first, 58), (last, 58)], kind)
+    assert result.cells[0][0] == first and result.cells[-1][0] == last
+    if kind == 'stream':  # Exact regression reported for the parabolic valley.
+        assert result.cells[0] == [first, 50]
+        assert result.cells[-1] == [last, 50]
+    assert result.metrics['relaxed_guide_count'] == 2
+    assert max(abs(col - 50) for row, col in result.cells) <= 1
+    validate_segments(terrain, result.coordinates)
+
+
+@pytest.mark.parametrize('kind,sign', [('ridge', -1), ('stream', 1)])
+def test_longitudinal_evidence_uses_valid_side_beside_nodata(tmp_path, kind, sign):
+    rows, cols = np.mgrid[:100, :100]
+    data = sign * (cols - 50) ** 2 / 8 + (100 - rows) * .1
+    # Valid terrain beyond these thin barriers must not be included in a
+    # candidate's longitudinal support on the other side of the gap.
+    data[[2, 97], :] = np.nan
+    terrain = make_terrain(tmp_path, data)
+    result = trace(terrain, [(3, 58), (96, 58)], kind)
+    assert result.cells[0][0] == 3 and result.cells[-1][0] == 96
+    if kind == 'stream':
+        assert result.cells[0] == [3, 50]
+        assert result.cells[-1] == [96, 50]
+    assert result.metrics['relaxed_guide_count'] == 2
+    assert max(abs(col - 50) for row, col in result.cells) <= 1
+    validate_segments(terrain, result.coordinates)
+
+
+@pytest.mark.parametrize('disconnected_cost', [0., 1000.])
+def test_longitudinal_score_cannot_average_through_nodata_gaps(disconnected_cost):
+    from tracertool.tracing import _profile_support_cost
+    mask = np.ones((17, 7), dtype=bool)
+    mask[[4, 8], :] = False
+    cost = np.full(mask.shape, disconnected_cost)
+    cost[5:8, :] = 5
+    cost[~mask] = np.inf
+    score = _profile_support_cost(cost, mask, [[6, 3]], np.array([1., 0.]), np.arange(-5., 6.))
+    assert score.tolist() == [5.]
+
+
+def test_longitudinal_score_stops_at_nodata_corner_even_when_probe_cells_are_valid():
+    from tracertool.tracing import _profile_support_cost
+    mask = np.ones((11, 11), dtype=bool)
+    mask[5, 6] = False
+    cost = np.full(mask.shape, 7.)
+    cost[6:, 6:] = 0
+    cost[~mask] = np.inf
+    # The diagonal probe centers all land in valid cells. The segment toward
+    # their attractive zero-cost region touches the missing cell's corner.
+    score = _profile_support_cost(cost, mask, [[5, 5]], np.array([1., 1.]) / math.sqrt(2),
+                                  np.arange(-4., 5.))
+    assert score.tolist() == [7.]
+
+
 @pytest.mark.parametrize('radius', [float('inf'), float('nan'), -1., 0.])
 def test_unbounded_radius_still_rejects_invalid_values(tmp_path, radius):
     terrain = make_terrain(tmp_path, np.zeros((40, 40)))

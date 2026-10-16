@@ -24,11 +24,28 @@ at most 1.1 cells in those cases. Tests also cover flat/pit ambiguity, protected
 connections, NoData and wide-radius searches with 3-cell target spacing. These
 synthetic bounds do not establish positional accuracy on real terrain.
 
+A later wide-radius native ridge preview revealed an endpoint leaving the
+continuous crest for a short neighboring bump. The correction evaluates guide
+candidates along the local guide direction up to eight cells each side,
+limited to a quarter of adjacent guide separation. A small isolated feature
+therefore needs longitudinal support to displace the guide. This scale remains
+independent of search radius and does not turn on either smoothing control.
+Eighteen added ridge/stream tests vary anomaly length and first/middle/last
+guide position; the motivating synthetic maximum deviation fell from 45 cells
+to zero. The complete local suite, including boundary and NoData regressions,
+then passed 457 tests.
+
+The repeated native 48-cell-radius, 3-cell-spacing ridge trace visibly lost
+the off-crest tail and was accepted, saved and exported: 237 vertices over 704.036 feet, compared with 770.752 feet
+before the correction. Its minimum source-sampled elevation rose from 986.542
+to 995.372 feet and the affected endpoint from 987.670 to 995.378 feet. These
+are comparative DEM samples and visual evidence, not surveyed crest accuracy.
+
 Native Linux interaction checks included a coarser geographic USGS raster
 through an explicitly projected copy and its disclosed approximately
 47.4422-metre working grid. A 500-cell search with 3-cell spacing produced 136
-vertices along 19,036.8 metres, with measured median spacing 142.0 metres and
-range 131.5–142.0 metres. This case illustrates independent search and output
+vertices along 19,087.4 metres, with measured median spacing 142.2 metres and
+range 131.6–142.2 metres. This case illustrates independent search and output
 spacing; it is not an accuracy comparison against ground truth.
 
 The public synthetic demo intentionally retains explicit historical smoothing

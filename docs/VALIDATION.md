@@ -2,13 +2,13 @@
 
 ## 0.2.2 — terrain display and draft tracing, 2026-10-16
 
-The final Linux source suite passed **430 tests in 43.48 seconds**, using Qt's
+The final Linux source suite passed **457 tests in 46.49 seconds**, using Qt's
 offscreen platform. The application startup smoke test and installed-dependency
 consistency check also passed. Real mouse/keyboard desktop exercises are
 recorded separately below; the automated run alone does not establish an
 interactive workflow.
 
-The focused terrain/tracing coverage includes 33 feedback cases within 57
+The focused terrain/tracing coverage includes 60 feedback cases within 84
 focused tests. On generated curved valleys, ridges and bank slope breaks,
 rough guides offset by eight cells produce mean feature error below 0.5 cells
 and maximum error at most 1.1 cells. These checks run at one-foot and 30-metre
@@ -32,6 +32,57 @@ preserving an unaccepted preview, and snapped-guide indices being preserved,
 reversed or invalidated as appropriate. A rapid insertion followed
 by a drag no longer creates a duplicate guide through a double-click event.
 
+### Continuity correction found during native inspection
+
+A wide-radius ridge preview exposed an endpoint leaving the continuous crest
+to chase a short, sharp neighboring bump. Candidate guides had relied too much
+on evidence at one cross-section. The corrected score samples along the local
+guide direction up to eight cells on each side, limited to one quarter of the
+nearest guide separation around bends. This support distance is independent of
+search radius; it does not enable either optional smoothing stage.
+Available one-sided terrain supports guides at raster edges. Nine additional
+boundary and NoData cases verify that support stops at gaps and diagonal
+corner touches, and that valid guides near the edge still adjust to the feature.
+
+Eighteen additional regression cases place one-, two- and three-cell-long
+bumps or pits beside a continuous ridge or channel at the first, middle or last
+guide. In the motivating synthetic comparison, maximum centerline deviation
+fell from 45 cells to zero; the tests require at most one cell and preserve
+source Z, spacing and NoData safety. This is a synthetic reproduction of the
+failure mechanism, not a bound on real-terrain positional accuracy.
+
+The repeated native ridge trace, using a 48-cell radius and 3-cell target
+spacing, visibly stayed on the crest without the previous endpoint tail and
+was accepted, saved and exported. It
+contained 237 vertices over 704.036 feet, compared with the earlier 770.752-foot
+route. Minimum sampled Z was 995.372 feet instead of 986.542 feet; the affected
+endpoint was 995.378 feet instead of 987.670 feet. These heights describe the
+source DEM sampled at the two routes, not an independent survey comparison.
+The accepted ridge had 3.0-foot median spacing and a 2.7–3.0-foot range;
+exported XYZ matched the project, sampled source Z and NoData-safe segments
+were verified. The inspection image is retained locally and is not published.
+
+### Hosted source checks for the initial 0.2.2 snapshot
+
+The [initial 0.2.2 workflow](https://github.com/HoganV/TracerTool/actions/runs/38917533376)
+passed for source commit
+[`3459a7e`](https://github.com/HoganV/TracerTool/commit/3459a7e):
+
+| Hosted environment | Automated suite |
+|---|---|
+| Linux, Python 3.11 | 430 passed in 34.47 seconds. |
+| Linux, Python 3.12 | 430 passed in 34.60 seconds. |
+| Windows, Python 3.13 | 430 passed in 71.96 seconds. |
+| Windows, Python 3.14.7 | 430 passed in 79.53 seconds. |
+
+All four environments also passed the startup smoke test and dependency
+consistency check; the complete-history publication audit passed. These are
+native source-installation tests with Qt offscreen, not interactive Windows or
+portable-package acceptance. This hosted snapshot precedes the endpoint
+continuity correction described above. Its later 457-test local result must
+not be attributed to this 430-test workflow; hosted follow-up verification is
+not yet recorded here.
+
 ### Native Linux computer-control checks
 
 The real Linux Qt application was operated with mouse and keyboard on private
@@ -52,13 +103,14 @@ filenames and screenshots remain outside the public documentation and source.
 
 The final repeated coarse-terrain trace used a **500-cell search radius** with
 **3-cell target spacing** and five rough guides. It produced **136 vertices**
-over **19,036.8 metres**, with measured spacing **142.0 metres median,
-131.5 minimum and 142.0 maximum**. This demonstrates that the wider search does
+over **19,087.4 metres**, with measured spacing **142.2 metres median,
+131.6 minimum and 142.2 maximum**. This demonstrates that the wider search does
 not force coarser output spacing in that exercised case. The final-code line
-was previewed, accepted, saved, exported and reopened.
+was previewed, accepted, saved and exported; project/export read-back checks
+confirmed the stored coordinates.
 
-The final-code one-foot trace produced **466 vertices over 1,305.2 feet**,
-with spacing **3.0 feet median and range 0.8–3.0 feet**, using 12-cell radius,
+The final-code one-foot trace produced **467 vertices over 1,307.3 feet**,
+with spacing **3.0 feet median and range 0.9–3.0 feet**, using 12-cell radius,
 3-cell spacing and both smoothing settings zero. It was accepted, saved and
 exported after the display changes above. Shorter edges remain possible around
 necessary bends; target spacing is not a promised minimum.
@@ -74,8 +126,9 @@ labeled channel or crest was available to establish real-world accuracy.
 ### Limits for this revision
 
 No 0.2.2 portable package, frozen-resource smoke test or interactive native
-Windows acceptance was performed. The 0.2.1 hosted Windows/Linux checks and
-0.2.0 portable/Wine evidence below apply only to those historical snapshots.
+Windows acceptance was performed. Hosted results apply to the exact source
+commits identified above. The 0.2.1 checks and 0.2.0 portable/Wine evidence below
+apply only to those historical snapshots.
 QGIS/ArcGIS Pro acceptance, independent terrain accuracy, hydrologic validation
 and measured operator productivity remain open gates.
 

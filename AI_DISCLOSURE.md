@@ -34,8 +34,12 @@ and attractive examples are narrower evidence than those missing checks.
 The 0.2.2 desktop exercises included fine projected terrain and a coarser USGS
 raster through an explicitly reprojected copy with a disclosed working grid.
 They establish observed workflow behavior, not independent feature accuracy.
-Portable/Wine results from 0.2.0 and hosted 0.2.1 tests remain labeled by version;
-they do not validate a 0.2.2 binary or native Windows interactive workflow.
+A later native inspection exposed an endpoint following an isolated shoulder
+feature; agents revised the continuity check and added synthetic reproductions.
+Hosted Windows/Linux tests verified the initial 0.2.2 source snapshot, while
+the later correction has separately recorded local checks. Results are tied to
+their tested snapshots. Historical portable/Wine evidence does not validate a
+0.2.2 binary or native Windows interactive workflow.
 
 The [research notes](docs/RESEARCH.md) link primary sources and distinguish
 implemented methods from ideas for future work. Literature summaries and

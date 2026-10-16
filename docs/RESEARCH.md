@@ -129,7 +129,16 @@ sampling spans unfixed guides rather than restarting at every rough point.
 The relaxation option is on for new drafts; snapped feature connections and
 correction boundaries are protected. A flat or ambiguous cross-section does
 not justify moving a rough guide merely to chase an isolated pit or an
-unlocated slope response. Legacy projects without
+unlocated slope response. Native wide-search inspection also found a short
+shoulder bump could win at an endpoint despite a continuous crest nearby.
+Guide candidates now use evidence along the local guide direction, up to
+eight cells on either side and limited to one quarter of the nearest guide
+separation. Averaging this support favors a continuing feature over isolated
+curvature peaks while keeping the support scale independent of search radius.
+Near a raster edge, available one-sided support is used. A NoData gap or
+diagonal corner touch stops the support, so disconnected samples cannot affect
+that guide's score.
+It is a local heuristic, not a complete longitudinal landform classifier. Legacy projects without
 that option keep fixed-guide behavior when explicitly retraced. Loading a
 project never reruns the solver or moves accepted geometry. Project schema 1
 retains optional relaxation and fixed-guide indices with strict validation.
@@ -157,6 +166,12 @@ error at most 1.1 cells while preserving source Z and NoData constraints.
 Wide-radius tests keep 3-cell output spacing; flat and isolated-pit cases check
 that ambiguity does not spuriously relocate guides. This is deterministic
 synthetic evidence for the implemented behavior, not a universal accuracy bound.
+Eighteen further cases put one-, two- and three-cell-long shoulder bumps/pits
+beside a continuous ridge/channel at the first, middle or last guide. The
+continuity correction reduced the motivating synthetic maximum deviation from
+45 cells to zero and visually removed an off-crest endpoint tail in a native
+48-cell-radius ridge preview. Those sampled heights and geometry measurements
+are case-specific; no independent survey established the crest location.
 
 Native Linux computer-control exercises used fine projected terrain and a
 separate projected copy of the coarser geographic USGS source. Its displayed

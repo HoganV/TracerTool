@@ -8,10 +8,11 @@ SciPy and scikit-image. Original code and documentation are MIT licensed.
 
 **Status: v0.2.2 desktop source revision.** The workflow covers terrain
 viewing, assisted tracing, hand corrections, local retracing, recovery, project
-saves and GIS export. This revision has Linux source and real desktop
-interaction checks. Windows/Linux hosted tests from 0.2.1 and portable/Wine
-checks from 0.2.0 are historical evidence for those snapshots; no 0.2.2 portable
-package or interactive Windows acceptance is claimed. See the
+saves and GIS export. The initial 0.2.2 source snapshot passed hosted Windows
+and Linux tests; the subsequent endpoint correction passed 457
+local Linux tests and real desktop inspection. Results are recorded by source
+snapshot. Portable/Wine checks from 0.2.0 remain historical evidence; no 0.2.2
+portable package or interactive Windows acceptance is claimed. See the
 [validation record](docs/VALIDATION.md). Independent terrain accuracy,
 target-GIS handoff and hydrologic validation remain outstanding.
 

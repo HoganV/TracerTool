@@ -14,6 +14,11 @@
   snapped connections and local-correction boundaries. Added draft guide
   move/insert/delete and undo/redo while developing a trace, including rapid
   insertion followed by a drag without duplicate points.
+- Corrected rough guides being drawn toward isolated shoulder bumps or pits,
+  especially at endpoints, by checking continuity along the local guide
+  direction. This retains the continuous crest/channel without coupling the
+  support scale to search radius or enabling smoothing. Available one-sided
+  evidence supports guides near raster edges; NoData gaps stop that evidence.
 - Kept project schema 1 compatible: optional guide-relaxation and fixed-guide
   fields are validated; old saved geometry is never recomputed on open, and
   explicit legacy retracing retains fixed guides when the option is absent.
