@@ -1,0 +1,1350 @@
+{
+  "schema_version": 1,
+  "reports": {
+    "minnesota-legacy": {
+      "counts": {
+        "total": 3,
+        "candidate": 3,
+        "failure": 0,
+        "abstention": 0,
+        "ambiguous": 0
+      },
+      "candidate_coverage": 1.0,
+      "reach_summary": {
+        "scored_reaches": 3,
+        "symmetric_p95": {
+          "median": 22.104477755162925,
+          "p95": 289.3739408968053,
+          "maximum": 319.0705479125434,
+          "values": [
+            12.121078987211435,
+            22.104477755162925,
+            319.0705479125434
+          ]
+        }
+      },
+      "sampling_spacing": 1.0,
+      "metric_units": "source projected XY units",
+      "thresholds": {
+        "max_p95": null,
+        "max_non_candidate_fraction": 0.0
+      },
+      "threshold_passed": true,
+      "provenance": {
+        "manifest_id": "minnesota-cross-vintage-pilot-v1",
+        "manifest_sha256": "f3510c0d9b903bcf9d1b148668f34309f552ecd431f783b82779abe0d05be7a6",
+        "method": "legacy",
+        "engine_source_sha256": "578b3f2040b0823ed8eface625af1a1b5c0a3bf801c80ecfc5ffb600984dc628",
+        "harness_sha256": "e84b183bd80957e9f05cdd486a52c8e07e378e94cf40b070033e6dcb58d5cfe4",
+        "module_sha256": {
+          "evaluation.py": "e84b183bd80957e9f05cdd486a52c8e07e378e94cf40b070033e6dcb58d5cfe4",
+          "terrain.py": "17ba210717322c779d3b7f17615fe2ed5169e896f05dae1eabf54691fac978bc",
+          "tracing.py": "578b3f2040b0823ed8eface625af1a1b5c0a3bf801c80ecfc5ffb600984dc628",
+          "analysis_grid.py": "5e744542ddbdba3e64e9a81aa70bf4022839db30f7eecbcb733e88d6bc3a2c51",
+          "stream_auto.py": "06355702593eaaf772c564cac831939cd478e729970d41a316b3f05664eea097"
+        },
+        "dependency_versions": {
+          "numpy": "2.5.4",
+          "scipy": "1.18.1",
+          "rasterio": "1.5.2"
+        },
+        "assets": {
+          "raster": {
+            "file": "terrain-1m.tif",
+            "sha256": "091239416e60c86d2f362aab05ecf425df262f520ebcd6f5303a8297fca36f97"
+          },
+          "reference": {
+            "file": "watercourses.esri.json",
+            "sha256": "a8fa15e872094667bf45513f34f608b18df7eeaf10bc216e522f51f102491960"
+          }
+        },
+        "split": "development",
+        "label_role": "terrain-derived supervision; cross-vintage discrepancy check",
+        "resolved_trace_params": {
+          "corridor": 12.0,
+          "smoothing": 0.0,
+          "terrain_weight": 8.0,
+          "spacing": 3.0,
+          "simplify": 0.75,
+          "line_smoothing": 0.0,
+          "relax_anchors": true
+        },
+        "max_dimension": 2500
+      },
+      "local_report_sha256": "8498007f3e41b56ec9d431930b42d01d91d453714d40816402c134e91440f062",
+      "total_solver_and_scoring_seconds": 0.9981634089926956,
+      "reaches": [
+        {
+          "id": "mn-7672",
+          "guide_count": 2,
+          "status": "candidate",
+          "seconds": 0.033026667006197385,
+          "distances": {
+            "prediction_to_reference": {
+              "mean": 3.0027768634254963,
+              "median": 2.348944623587075,
+              "p95": 8.00462152131733,
+              "maximum": 10.372162059999605,
+              "samples": 212,
+              "actual_step": 0.9984686466686016,
+              "sampling_error_bound": 0.4992343233343008
+            },
+            "reference_to_prediction": {
+              "mean": 3.965482609440964,
+              "median": 2.9378736857234795,
+              "p95": 12.121078987211435,
+              "maximum": 15.917965742941313,
+              "samples": 266,
+              "actual_step": 0.9993818413521922,
+              "sampling_error_bound": 0.4996909206760961
+            },
+            "symmetric": {
+              "mean": 3.48412973643323,
+              "median": 2.643409154655277,
+              "p95": 12.121078987211435,
+              "p95_upper_bound": 12.620769907887532,
+              "maximum": 15.917965742941313,
+              "hausdorff_upper_bound": 16.417656663617407
+            }
+          },
+          "endpoint_displacement": [
+            7.211102550927978,
+            2.23606797749979
+          ]
+        },
+        {
+          "id": "mn-7767",
+          "guide_count": 2,
+          "status": "candidate",
+          "seconds": 0.05017845198744908,
+          "distances": {
+            "prediction_to_reference": {
+              "mean": 7.571989695688094,
+              "median": 6.7587091164342095,
+              "p95": 20.791974799139084,
+              "maximum": 24.007429395490117,
+              "samples": 389,
+              "actual_step": 0.9995969129123011,
+              "sampling_error_bound": 0.49979845645615056
+            },
+            "reference_to_prediction": {
+              "mean": 9.081483888439017,
+              "median": 8.801205834711588,
+              "p95": 22.104477755162925,
+              "maximum": 27.413999916201696,
+              "samples": 492,
+              "actual_step": 0.998345240294976,
+              "sampling_error_bound": 0.499172620147488
+            },
+            "symmetric": {
+              "mean": 8.326736792063556,
+              "median": 7.779957475572899,
+              "p95": 22.104477755162925,
+              "p95_upper_bound": 22.603650375310412,
+              "maximum": 27.413999916201696,
+              "hausdorff_upper_bound": 27.913172536349183
+            }
+          },
+          "endpoint_displacement": [
+            5.385164807134504,
+            0.0
+          ]
+        },
+        {
+          "id": "mn-7829",
+          "guide_count": 2,
+          "status": "candidate",
+          "seconds": 0.9149582899990492,
+          "distances": {
+            "prediction_to_reference": {
+              "mean": 121.87914001821633,
+              "median": 120.79514318683711,
+              "p95": 260.0429004173728,
+              "maximum": 292.2226366321114,
+              "samples": 1997,
+              "actual_step": 0.9996863880582781,
+              "sampling_error_bound": 0.49984319402913907
+            },
+            "reference_to_prediction": {
+              "mean": 156.71974089224418,
+              "median": 144.42189440332194,
+              "p95": 319.0705479125434,
+              "maximum": 334.6920634016922,
+              "samples": 2699,
+              "actual_step": 0.9997022298741566,
+              "sampling_error_bound": 0.4998511149370783
+            },
+            "symmetric": {
+              "mean": 139.29944045523024,
+              "median": 132.60851879507953,
+              "p95": 319.0705479125434,
+              "p95_upper_bound": 319.5703990274805,
+              "maximum": 334.6920634016922,
+              "hausdorff_upper_bound": 335.1919145166293
+            }
+          },
+          "endpoint_displacement": [
+            0.0,
+            8.602325267042627
+          ]
+        }
+      ]
+    },
+    "minnesota-auto": {
+      "counts": {
+        "total": 3,
+        "candidate": 0,
+        "failure": 3,
+        "abstention": 0,
+        "ambiguous": 0
+      },
+      "candidate_coverage": 0.0,
+      "reach_summary": {
+        "scored_reaches": 0,
+        "symmetric_p95": null
+      },
+      "sampling_spacing": 1.0,
+      "metric_units": "source projected XY units",
+      "thresholds": {
+        "max_p95": null,
+        "max_non_candidate_fraction": 0.0
+      },
+      "threshold_passed": false,
+      "provenance": {
+        "manifest_id": "minnesota-cross-vintage-pilot-v1",
+        "manifest_sha256": "f3510c0d9b903bcf9d1b148668f34309f552ecd431f783b82779abe0d05be7a6",
+        "method": "auto",
+        "engine_source_sha256": "06355702593eaaf772c564cac831939cd478e729970d41a316b3f05664eea097",
+        "harness_sha256": "e84b183bd80957e9f05cdd486a52c8e07e378e94cf40b070033e6dcb58d5cfe4",
+        "module_sha256": {
+          "evaluation.py": "e84b183bd80957e9f05cdd486a52c8e07e378e94cf40b070033e6dcb58d5cfe4",
+          "terrain.py": "17ba210717322c779d3b7f17615fe2ed5169e896f05dae1eabf54691fac978bc",
+          "tracing.py": "578b3f2040b0823ed8eface625af1a1b5c0a3bf801c80ecfc5ffb600984dc628",
+          "analysis_grid.py": "5e744542ddbdba3e64e9a81aa70bf4022839db30f7eecbcb733e88d6bc3a2c51",
+          "stream_auto.py": "06355702593eaaf772c564cac831939cd478e729970d41a316b3f05664eea097"
+        },
+        "dependency_versions": {
+          "numpy": "2.5.4",
+          "scipy": "1.18.1",
+          "rasterio": "1.5.2"
+        },
+        "assets": {
+          "raster": {
+            "file": "terrain-1m.tif",
+            "sha256": "091239416e60c86d2f362aab05ecf425df262f520ebcd6f5303a8297fca36f97"
+          },
+          "reference": {
+            "file": "watercourses.esri.json",
+            "sha256": "a8fa15e872094667bf45513f34f608b18df7eeaf10bc216e522f51f102491960"
+          }
+        },
+        "split": "development",
+        "label_role": "terrain-derived supervision; cross-vintage discrepancy check",
+        "resolved_trace_params": {
+          "corridor": 12.0,
+          "smoothing": 0.0,
+          "terrain_weight": 8.0,
+          "spacing": 3.0,
+          "simplify": 0.75,
+          "line_smoothing": 0.0,
+          "relax_anchors": true
+        },
+        "max_dimension": 2500
+      },
+      "local_report_sha256": "1b36572cd1e28d8b8e9b5ee97bba16019e51e97ba081aec502a8599500499790",
+      "total_solver_and_scoring_seconds": 4.055577636987437,
+      "reaches": [
+        {
+          "id": "mn-7672",
+          "guide_count": 2,
+          "status": "failure",
+          "seconds": 0.9661836849991232,
+          "error_type": "ValueError",
+          "message_group": "native_sink_rejection"
+        },
+        {
+          "id": "mn-7767",
+          "guide_count": 2,
+          "status": "failure",
+          "seconds": 3.0893194229865912,
+          "error_type": "ValueError",
+          "message_group": "native_sink_rejection"
+        },
+        {
+          "id": "mn-7829",
+          "guide_count": 2,
+          "status": "failure",
+          "seconds": 7.45290017221123e-05,
+          "error_type": "ValueError",
+          "message_group": "memory_budget"
+        }
+      ]
+    },
+    "massachusetts-legacy": {
+      "counts": {
+        "total": 18,
+        "candidate": 18,
+        "failure": 0,
+        "abstention": 0,
+        "ambiguous": 0
+      },
+      "candidate_coverage": 1.0,
+      "reach_summary": {
+        "scored_reaches": 18,
+        "symmetric_p95": {
+          "median": 18.627752461133966,
+          "p95": 95.69650286039194,
+          "maximum": 140.90212731370937,
+          "values": [
+            87.7190397215713,
+            8.883703709908058,
+            4.363634555141716,
+            30.837381334386475,
+            13.202346386053701,
+            26.18082031590843,
+            140.90212731370937,
+            61.11465538481714,
+            8.228264701203443,
+            8.093898752986624,
+            13.768144214630354,
+            17.915964958151232,
+            6.92465955616266,
+            46.87540719901427,
+            19.339539964116696,
+            58.2695890881551,
+            10.231640397155928,
+            22.642483473791927
+          ]
+        }
+      },
+      "sampling_spacing": 1.0,
+      "metric_units": "source projected XY units",
+      "thresholds": {
+        "max_p95": null,
+        "max_non_candidate_fraction": 0.0
+      },
+      "threshold_passed": true,
+      "provenance": {
+        "manifest_id": "massachusetts-cartographic-check-v1",
+        "manifest_sha256": "da01bce6e3adc3b8ea058641fd42e7cd70d92b28db7b00b46eeaeaad8b81f8a7",
+        "method": "legacy",
+        "engine_source_sha256": "578b3f2040b0823ed8eface625af1a1b5c0a3bf801c80ecfc5ffb600984dc628",
+        "harness_sha256": "e84b183bd80957e9f05cdd486a52c8e07e378e94cf40b070033e6dcb58d5cfe4",
+        "module_sha256": {
+          "evaluation.py": "e84b183bd80957e9f05cdd486a52c8e07e378e94cf40b070033e6dcb58d5cfe4",
+          "terrain.py": "17ba210717322c779d3b7f17615fe2ed5169e896f05dae1eabf54691fac978bc",
+          "tracing.py": "578b3f2040b0823ed8eface625af1a1b5c0a3bf801c80ecfc5ffb600984dc628",
+          "analysis_grid.py": "5e744542ddbdba3e64e9a81aa70bf4022839db30f7eecbcb733e88d6bc3a2c51",
+          "stream_auto.py": "06355702593eaaf772c564cac831939cd478e729970d41a316b3f05664eea097"
+        },
+        "dependency_versions": {
+          "numpy": "2.5.4",
+          "scipy": "1.18.1",
+          "rasterio": "1.5.2"
+        },
+        "assets": {
+          "raster": {
+            "file": "terrain-crop.tif",
+            "sha256": "6c47cde51297411a3186af597f12aab4dfbd2f197804db61e9c52cb1584d1ede"
+          },
+          "reference": {
+            "file": "reference.esri.json",
+            "sha256": "baf49287e1fbd652e09cbe0a66998b3b96bc7c1e66717dbc1846535dc9bc151d"
+          }
+        },
+        "split": "validation",
+        "label_role": "independent-source cartographic check; unreviewed historical/mixed lineage",
+        "resolved_trace_params": {
+          "corridor": 12.0,
+          "smoothing": 0.0,
+          "terrain_weight": 8.0,
+          "spacing": 3.0,
+          "simplify": 0.75,
+          "line_smoothing": 0.0,
+          "relax_anchors": true
+        },
+        "max_dimension": 2500
+      },
+      "local_report_sha256": "a1f2a4d0b9555861612b0fe621043010fd8bee32b6844ed5fef27cfe508817b8",
+      "total_solver_and_scoring_seconds": 0.679451521995361,
+      "reaches": [
+        {
+          "id": "ma-218445-0",
+          "guide_count": 2,
+          "status": "candidate",
+          "seconds": 0.06166201300220564,
+          "distances": {
+            "prediction_to_reference": {
+              "mean": 40.551057580680514,
+              "median": 40.1143344014119,
+              "p95": 78.11463049693857,
+              "maximum": 84.60218502376888,
+              "samples": 461,
+              "actual_step": 0.9985757995816983,
+              "sampling_error_bound": 0.49928789979084914
+            },
+            "reference_to_prediction": {
+              "mean": 44.59273733670218,
+              "median": 43.07066131038672,
+              "p95": 87.7190397215713,
+              "maximum": 88.83760155060212,
+              "samples": 466,
+              "actual_step": 0.9999408523484056,
+              "sampling_error_bound": 0.4999704261742028
+            },
+            "symmetric": {
+              "mean": 42.571897458691346,
+              "median": 41.59249785589931,
+              "p95": 87.7190397215713,
+              "p95_upper_bound": 88.21901014774551,
+              "maximum": 88.83760155060212,
+              "hausdorff_upper_bound": 89.33757197677632
+            }
+          },
+          "endpoint_displacement": [
+            7.770996215252553,
+            0.5375393072628046
+          ]
+        },
+        {
+          "id": "ma-219209-0",
+          "guide_count": 2,
+          "status": "candidate",
+          "seconds": 0.013503338006557897,
+          "distances": {
+            "prediction_to_reference": {
+              "mean": 4.030111240432753,
+              "median": 3.7173549226465052,
+              "p95": 8.883703709908058,
+              "maximum": 9.103780750961695,
+              "samples": 144,
+              "actual_step": 0.995346378122459,
+              "sampling_error_bound": 0.4976731890612295
+            },
+            "reference_to_prediction": {
+              "mean": 3.787214778442749,
+              "median": 3.5285000996664166,
+              "p95": 8.75744878678541,
+              "maximum": 8.98291783570312,
+              "samples": 139,
+              "actual_step": 0.9986702475733142,
+              "sampling_error_bound": 0.4993351237866571
+            },
+            "symmetric": {
+              "mean": 3.908663009437751,
+              "median": 3.622927511156461,
+              "p95": 8.883703709908058,
+              "p95_upper_bound": 9.381376898969288,
+              "maximum": 9.103780750961695,
+              "hausdorff_upper_bound": 9.601453940022925
+            }
+          },
+          "endpoint_displacement": [
+            0.35095380237715623,
+            8.35975758220172
+          ]
+        },
+        {
+          "id": "ma-221442-0",
+          "guide_count": 2,
+          "status": "candidate",
+          "seconds": 0.014232923000236042,
+          "distances": {
+            "prediction_to_reference": {
+              "mean": 2.1083053304779074,
+              "median": 1.827256311363578,
+              "p95": 4.363634555141716,
+              "maximum": 4.821431214838804,
+              "samples": 113,
+              "actual_step": 0.9961916828855184,
+              "sampling_error_bound": 0.4980958414427592
+            },
+            "reference_to_prediction": {
+              "mean": 1.9057310284239177,
+              "median": 1.7134386762045324,
+              "p95": 3.607290975691285,
+              "maximum": 4.524469889832516,
+              "samples": 101,
+              "actual_step": 0.9983565062934421,
+              "sampling_error_bound": 0.49917825314672104
+            },
+            "symmetric": {
+              "mean": 2.0070181794509123,
+              "median": 1.770347493784055,
+              "p95": 4.363634555141716,
+              "p95_upper_bound": 4.861730396584475,
+              "maximum": 4.821431214838804,
+              "hausdorff_upper_bound": 5.319527056281563
+            }
+          },
+          "endpoint_displacement": [
+            0.43022274465414134,
+            5.6205418253053745
+          ]
+        },
+        {
+          "id": "ma-225642-0",
+          "guide_count": 2,
+          "status": "candidate",
+          "seconds": 0.025415980999241583,
+          "distances": {
+            "prediction_to_reference": {
+              "mean": 13.319607031639734,
+              "median": 10.300890529756384,
+              "p95": 30.837381334386475,
+              "maximum": 33.71070991685599,
+              "samples": 266,
+              "actual_step": 0.9978458474838435,
+              "sampling_error_bound": 0.49892292374192176
+            },
+            "reference_to_prediction": {
+              "mean": 11.334109277551645,
+              "median": 9.633091468361151,
+              "p95": 24.15066178748384,
+              "maximum": 26.492817049923392,
+              "samples": 229,
+              "actual_step": 0.997685508046421,
+              "sampling_error_bound": 0.4988427540232105
+            },
+            "symmetric": {
+              "mean": 12.32685815459569,
+              "median": 9.966990999058767,
+              "p95": 30.837381334386475,
+              "p95_upper_bound": 31.336304258128397,
+              "maximum": 33.71070991685599,
+              "hausdorff_upper_bound": 34.20963284059791
+            }
+          },
+          "endpoint_displacement": [
+            2.2373329455689315,
+            6.821313550750531
+          ]
+        },
+        {
+          "id": "ma-226018-0",
+          "guide_count": 2,
+          "status": "candidate",
+          "seconds": 0.019560297994758002,
+          "distances": {
+            "prediction_to_reference": {
+              "mean": 6.8164719831654415,
+              "median": 6.778611280806769,
+              "p95": 13.104003836436076,
+              "maximum": 14.626696641927847,
+              "samples": 254,
+              "actual_step": 0.9963974267569925,
+              "sampling_error_bound": 0.49819871337849625
+            },
+            "reference_to_prediction": {
+              "mean": 6.687864160211526,
+              "median": 6.453282300876391,
+              "p95": 13.202346386053701,
+              "maximum": 14.800495335890446,
+              "samples": 241,
+              "actual_step": 0.9962361166049772,
+              "sampling_error_bound": 0.4981180583024886
+            },
+            "symmetric": {
+              "mean": 6.752168071688484,
+              "median": 6.61594679084158,
+              "p95": 13.202346386053701,
+              "p95_upper_bound": 13.70046444435619,
+              "maximum": 14.800495335890446,
+              "hausdorff_upper_bound": 15.298613394192934
+            }
+          },
+          "endpoint_displacement": [
+            0.2355052278764224,
+            7.536281503577584
+          ]
+        },
+        {
+          "id": "ma-226019-0",
+          "guide_count": 2,
+          "status": "candidate",
+          "seconds": 0.024891620996640995,
+          "distances": {
+            "prediction_to_reference": {
+              "mean": 11.982641227689887,
+              "median": 10.233967310464985,
+              "p95": 26.18082031590843,
+              "maximum": 26.31729214954327,
+              "samples": 220,
+              "actual_step": 0.9966983170366028,
+              "sampling_error_bound": 0.4983491585183014
+            },
+            "reference_to_prediction": {
+              "mean": 10.917509435426647,
+              "median": 8.789915536493442,
+              "p95": 25.557302629480247,
+              "maximum": 25.95169477554761,
+              "samples": 194,
+              "actual_step": 0.9984771968764097,
+              "sampling_error_bound": 0.49923859843820484
+            },
+            "symmetric": {
+              "mean": 11.450075331558267,
+              "median": 9.511941423479215,
+              "p95": 26.18082031590843,
+              "p95_upper_bound": 26.679169474426732,
+              "maximum": 26.31729214954327,
+              "hausdorff_upper_bound": 26.815641308061572
+            }
+          },
+          "endpoint_displacement": [
+            0.26511992818574426,
+            0.550424507450974
+          ]
+        },
+        {
+          "id": "ma-234766-0",
+          "guide_count": 2,
+          "status": "candidate",
+          "seconds": 0.12246632699680049,
+          "distances": {
+            "prediction_to_reference": {
+              "mean": 83.45049252768189,
+              "median": 95.60260686481803,
+              "p95": 125.9845388513487,
+              "maximum": 138.39810446269803,
+              "samples": 917,
+              "actual_step": 0.9995559759682354,
+              "sampling_error_bound": 0.4997779879841177
+            },
+            "reference_to_prediction": {
+              "mean": 86.59254101644373,
+              "median": 97.81678415174369,
+              "p95": 140.90212731370937,
+              "maximum": 145.75206593092784,
+              "samples": 883,
+              "actual_step": 0.9994051580000224,
+              "sampling_error_bound": 0.4997025790000112
+            },
+            "symmetric": {
+              "mean": 85.02151677206281,
+              "median": 96.70969550828086,
+              "p95": 140.90212731370937,
+              "p95_upper_bound": 141.40182989270937,
+              "maximum": 145.75206593092784,
+              "hausdorff_upper_bound": 146.25176850992784
+            }
+          },
+          "endpoint_displacement": [
+            1.0302959166303434,
+            0.374119427870751
+          ]
+        },
+        {
+          "id": "ma-235838-0",
+          "guide_count": 2,
+          "status": "candidate",
+          "seconds": 0.09321216700482182,
+          "distances": {
+            "prediction_to_reference": {
+              "mean": 22.69414411892196,
+              "median": 18.256348429103124,
+              "p95": 61.11465538481714,
+              "maximum": 68.9483642629219,
+              "samples": 749,
+              "actual_step": 0.9989760122815595,
+              "sampling_error_bound": 0.49948800614077976
+            },
+            "reference_to_prediction": {
+              "mean": 22.592205090086335,
+              "median": 18.796547325973453,
+              "p95": 59.92425779951574,
+              "maximum": 65.32201513553426,
+              "samples": 695,
+              "actual_step": 0.9994833076352854,
+              "sampling_error_bound": 0.4997416538176427
+            },
+            "symmetric": {
+              "mean": 22.643174604504146,
+              "median": 18.52644787753829,
+              "p95": 61.11465538481714,
+              "p95_upper_bound": 61.61414339095792,
+              "maximum": 68.9483642629219,
+              "hausdorff_upper_bound": 69.44785226906268
+            }
+          },
+          "endpoint_displacement": [
+            10.088930184216863,
+            4.322934511318661
+          ]
+        },
+        {
+          "id": "ma-236378-0",
+          "guide_count": 2,
+          "status": "candidate",
+          "seconds": 0.010921667999355122,
+          "distances": {
+            "prediction_to_reference": {
+              "mean": 2.866464546319541,
+              "median": 2.590344867526171,
+              "p95": 6.58861384921925,
+              "maximum": 8.896212643325356,
+              "samples": 91,
+              "actual_step": 0.9979359920162741,
+              "sampling_error_bound": 0.49896799600813707
+            },
+            "reference_to_prediction": {
+              "mean": 3.0778623078020444,
+              "median": 2.4832047351519577,
+              "p95": 8.228264701203443,
+              "maximum": 10.516163120919373,
+              "samples": 93,
+              "actual_step": 0.9894164379317041,
+              "sampling_error_bound": 0.49470821896585204
+            },
+            "symmetric": {
+              "mean": 2.9721634270607926,
+              "median": 2.5367748013390643,
+              "p95": 8.228264701203443,
+              "p95_upper_bound": 8.722972920169296,
+              "maximum": 10.516163120919373,
+              "hausdorff_upper_bound": 11.010871339885226
+            }
+          },
+          "endpoint_displacement": [
+            6.102372145280411,
+            10.821138244694133
+          ]
+        },
+        {
+          "id": "ma-236383-0",
+          "guide_count": 2,
+          "status": "candidate",
+          "seconds": 0.013292688003275543,
+          "distances": {
+            "prediction_to_reference": {
+              "mean": 3.2902209270893272,
+              "median": 2.555376645965776,
+              "p95": 8.093898752986624,
+              "maximum": 10.624887576747819,
+              "samples": 118,
+              "actual_step": 0.9938469185781571,
+              "sampling_error_bound": 0.49692345928907855
+            },
+            "reference_to_prediction": {
+              "mean": 3.2183931326719093,
+              "median": 2.5537154441699386,
+              "p95": 7.117425568803462,
+              "maximum": 9.573086610249897,
+              "samples": 113,
+              "actual_step": 0.9991806723813731,
+              "sampling_error_bound": 0.49959033619068655
+            },
+            "symmetric": {
+              "mean": 3.2543070298806183,
+              "median": 2.554546045067857,
+              "p95": 8.093898752986624,
+              "p95_upper_bound": 8.590822212275702,
+              "maximum": 10.624887576747819,
+              "hausdorff_upper_bound": 11.121811036036897
+            }
+          },
+          "endpoint_displacement": [
+            10.835006390300299,
+            0.38998929042624314
+          ]
+        },
+        {
+          "id": "ma-238499-0",
+          "guide_count": 2,
+          "status": "candidate",
+          "seconds": 0.021003511996241286,
+          "distances": {
+            "prediction_to_reference": {
+              "mean": 8.317835315496307,
+              "median": 9.216902356762013,
+              "p95": 13.768144214630354,
+              "maximum": 14.070093440091789,
+              "samples": 198,
+              "actual_step": 0.9951968591317547,
+              "sampling_error_bound": 0.49759842956587735
+            },
+            "reference_to_prediction": {
+              "mean": 8.397922678373195,
+              "median": 9.57818262496087,
+              "p95": 13.594645376677366,
+              "maximum": 14.117571421545668,
+              "samples": 198,
+              "actual_step": 0.9971961646664927,
+              "sampling_error_bound": 0.4985980823332464
+            },
+            "symmetric": {
+              "mean": 8.357878996934751,
+              "median": 9.397542490861442,
+              "p95": 13.768144214630354,
+              "p95_upper_bound": 14.265742644196232,
+              "maximum": 14.117571421545668,
+              "hausdorff_upper_bound": 14.616169503878915
+            }
+          },
+          "endpoint_displacement": [
+            8.771826052027501,
+            0.4083433320373034
+          ]
+        },
+        {
+          "id": "ma-238500-0",
+          "guide_count": 2,
+          "status": "candidate",
+          "seconds": 0.03210525499889627,
+          "distances": {
+            "prediction_to_reference": {
+              "mean": 6.452563499321288,
+              "median": 4.8680042941514685,
+              "p95": 16.745696906130913,
+              "maximum": 20.12681065900487,
+              "samples": 248,
+              "actual_step": 0.9962605627931155,
+              "sampling_error_bound": 0.49813028139655774
+            },
+            "reference_to_prediction": {
+              "mean": 6.6297761514233,
+              "median": 4.732204483780432,
+              "p95": 17.915964958151232,
+              "maximum": 19.275154646673556,
+              "samples": 236,
+              "actual_step": 0.9964066941761541,
+              "sampling_error_bound": 0.49820334708807706
+            },
+            "symmetric": {
+              "mean": 6.541169825372294,
+              "median": 4.80010438896595,
+              "p95": 17.915964958151232,
+              "p95_upper_bound": 18.414168305239308,
+              "maximum": 20.12681065900487,
+              "hausdorff_upper_bound": 20.62494094040143
+            }
+          },
+          "endpoint_displacement": [
+            10.700630411850618,
+            6.2941298598267394
+          ]
+        },
+        {
+          "id": "ma-239273-0",
+          "guide_count": 2,
+          "status": "candidate",
+          "seconds": 0.01502172699838411,
+          "distances": {
+            "prediction_to_reference": {
+              "mean": 2.793785549140386,
+              "median": 1.8406934376252484,
+              "p95": 6.900952364925849,
+              "maximum": 7.811686048300891,
+              "samples": 168,
+              "actual_step": 0.9948055417355972,
+              "sampling_error_bound": 0.4974027708677986
+            },
+            "reference_to_prediction": {
+              "mean": 2.786688011704552,
+              "median": 1.8472742919430996,
+              "p95": 6.92465955616266,
+              "maximum": 7.533736056361515,
+              "samples": 166,
+              "actual_step": 0.994951008095377,
+              "sampling_error_bound": 0.4974755040476885
+            },
+            "symmetric": {
+              "mean": 2.790236780422469,
+              "median": 1.843983864784174,
+              "p95": 6.92465955616266,
+              "p95_upper_bound": 7.422135060210349,
+              "maximum": 7.811686048300891,
+              "hausdorff_upper_bound": 8.30908881916869
+            }
+          },
+          "endpoint_displacement": [
+            0.49928720741896004,
+            0.29048366505720663
+          ]
+        },
+        {
+          "id": "ma-239275-0",
+          "guide_count": 2,
+          "status": "candidate",
+          "seconds": 0.03982266200182494,
+          "distances": {
+            "prediction_to_reference": {
+              "mean": 14.66419926820754,
+              "median": 10.661239193978615,
+              "p95": 39.638850779426186,
+              "maximum": 44.943700359939115,
+              "samples": 270,
+              "actual_step": 0.998216864876735,
+              "sampling_error_bound": 0.4991084324383675
+            },
+            "reference_to_prediction": {
+              "mean": 17.194718546251476,
+              "median": 12.822085950071944,
+              "p95": 46.87540719901427,
+              "maximum": 50.3363280564976,
+              "samples": 295,
+              "actual_step": 0.9996843993271644,
+              "sampling_error_bound": 0.4998421996635822
+            },
+            "symmetric": {
+              "mean": 15.929458907229508,
+              "median": 11.74166257202528,
+              "p95": 46.87540719901427,
+              "p95_upper_bound": 47.37524939867785,
+              "maximum": 50.3363280564976,
+              "hausdorff_upper_bound": 50.83617025616118
+            }
+          },
+          "endpoint_displacement": [
+            1.758376177065672,
+            7.876676623601951
+          ]
+        },
+        {
+          "id": "ma-239276-0",
+          "guide_count": 2,
+          "status": "candidate",
+          "seconds": 0.020357532004709356,
+          "distances": {
+            "prediction_to_reference": {
+              "mean": 7.811182028331441,
+              "median": 4.8785610334538445,
+              "p95": 19.32198787498925,
+              "maximum": 19.974998835242424,
+              "samples": 95,
+              "actual_step": 0.996341051801347,
+              "sampling_error_bound": 0.4981705259006735
+            },
+            "reference_to_prediction": {
+              "mean": 7.236407691324603,
+              "median": 4.0583509299476805,
+              "p95": 19.339539964116696,
+              "maximum": 20.005164365671316,
+              "samples": 90,
+              "actual_step": 0.9949050765867743,
+              "sampling_error_bound": 0.49745253829338715
+            },
+            "symmetric": {
+              "mean": 7.523794859828022,
+              "median": 4.468455981700762,
+              "p95": 19.339539964116696,
+              "p95_upper_bound": 19.836992502410084,
+              "maximum": 20.005164365671316,
+              "hausdorff_upper_bound": 20.502616903964704
+            }
+          },
+          "endpoint_displacement": [
+            0.8332261310319904,
+            0.07928254205315838
+          ]
+        },
+        {
+          "id": "ma-239751-0",
+          "guide_count": 2,
+          "status": "candidate",
+          "seconds": 0.08635808600229211,
+          "distances": {
+            "prediction_to_reference": {
+              "mean": 19.398307358764676,
+              "median": 13.927368033316462,
+              "p95": 58.2695890881551,
+              "maximum": 63.20900438255074,
+              "samples": 755,
+              "actual_step": 0.999852940001361,
+              "sampling_error_bound": 0.4999264700006805
+            },
+            "reference_to_prediction": {
+              "mean": 19.066706029920585,
+              "median": 13.302789448469412,
+              "p95": 53.43859326488449,
+              "maximum": 58.83071706960295,
+              "samples": 711,
+              "actual_step": 0.9990761921043,
+              "sampling_error_bound": 0.49953809605215
+            },
+            "symmetric": {
+              "mean": 19.232506694342632,
+              "median": 13.615078740892937,
+              "p95": 58.2695890881551,
+              "p95_upper_bound": 58.76951555815578,
+              "maximum": 63.20900438255074,
+              "hausdorff_upper_bound": 63.70893085255142
+            }
+          },
+          "endpoint_displacement": [
+            4.0901075942413385,
+            11.312423123850076
+          ]
+        },
+        {
+          "id": "ma-240256-0",
+          "guide_count": 2,
+          "status": "candidate",
+          "seconds": 0.020779999991646037,
+          "distances": {
+            "prediction_to_reference": {
+              "mean": 4.785408934596308,
+              "median": 4.414073095483856,
+              "p95": 10.231640397155928,
+              "maximum": 10.993898316142777,
+              "samples": 237,
+              "actual_step": 0.9988327111290364,
+              "sampling_error_bound": 0.4994163555645182
+            },
+            "reference_to_prediction": {
+              "mean": 4.525334936997145,
+              "median": 4.042372005991638,
+              "p95": 10.168596715473221,
+              "maximum": 10.542054301550305,
+              "samples": 216,
+              "actual_step": 0.9986929809372507,
+              "sampling_error_bound": 0.49934649046862534
+            },
+            "symmetric": {
+              "mean": 4.655371935796726,
+              "median": 4.228222550737747,
+              "p95": 10.231640397155928,
+              "p95_upper_bound": 10.731056752720447,
+              "maximum": 10.993898316142777,
+              "hausdorff_upper_bound": 11.493314671707296
+            }
+          },
+          "endpoint_displacement": [
+            2.146165154085153,
+            0.8332261310319904
+          ]
+        },
+        {
+          "id": "ma-255852-0",
+          "guide_count": 2,
+          "status": "candidate",
+          "seconds": 0.04484372399747372,
+          "distances": {
+            "prediction_to_reference": {
+              "mean": 8.864607253717844,
+              "median": 7.854660450831888,
+              "p95": 22.642483473791927,
+              "maximum": 25.68164351888631,
+              "samples": 400,
+              "actual_step": 0.9976351121812813,
+              "sampling_error_bound": 0.49881755609064066
+            },
+            "reference_to_prediction": {
+              "mean": 8.493614775704003,
+              "median": 7.93404695606916,
+              "p95": 19.47314406562077,
+              "maximum": 23.44583542665779,
+              "samples": 378,
+              "actual_step": 0.9980133427088806,
+              "sampling_error_bound": 0.4990066713544403
+            },
+            "symmetric": {
+              "mean": 8.679111014710923,
+              "median": 7.894353703450524,
+              "p95": 22.642483473791927,
+              "p95_upper_bound": 23.141301029882566,
+              "maximum": 25.68164351888631,
+              "hausdorff_upper_bound": 26.18046107497695
+            }
+          },
+          "endpoint_displacement": [
+            0.060890418066978605,
+            6.832263865186743
+          ]
+        }
+      ]
+    },
+    "massachusetts-auto": {
+      "counts": {
+        "total": 18,
+        "candidate": 0,
+        "failure": 18,
+        "abstention": 0,
+        "ambiguous": 0
+      },
+      "candidate_coverage": 0.0,
+      "reach_summary": {
+        "scored_reaches": 0,
+        "symmetric_p95": null
+      },
+      "sampling_spacing": 1.0,
+      "metric_units": "source projected XY units",
+      "thresholds": {
+        "max_p95": null,
+        "max_non_candidate_fraction": 0.0
+      },
+      "threshold_passed": false,
+      "provenance": {
+        "manifest_id": "massachusetts-cartographic-check-v1",
+        "manifest_sha256": "da01bce6e3adc3b8ea058641fd42e7cd70d92b28db7b00b46eeaeaad8b81f8a7",
+        "method": "auto",
+        "engine_source_sha256": "06355702593eaaf772c564cac831939cd478e729970d41a316b3f05664eea097",
+        "harness_sha256": "e84b183bd80957e9f05cdd486a52c8e07e378e94cf40b070033e6dcb58d5cfe4",
+        "module_sha256": {
+          "evaluation.py": "e84b183bd80957e9f05cdd486a52c8e07e378e94cf40b070033e6dcb58d5cfe4",
+          "terrain.py": "17ba210717322c779d3b7f17615fe2ed5169e896f05dae1eabf54691fac978bc",
+          "tracing.py": "578b3f2040b0823ed8eface625af1a1b5c0a3bf801c80ecfc5ffb600984dc628",
+          "analysis_grid.py": "5e744542ddbdba3e64e9a81aa70bf4022839db30f7eecbcb733e88d6bc3a2c51",
+          "stream_auto.py": "06355702593eaaf772c564cac831939cd478e729970d41a316b3f05664eea097"
+        },
+        "dependency_versions": {
+          "numpy": "2.5.4",
+          "scipy": "1.18.1",
+          "rasterio": "1.5.2"
+        },
+        "assets": {
+          "raster": {
+            "file": "terrain-crop.tif",
+            "sha256": "6c47cde51297411a3186af597f12aab4dfbd2f197804db61e9c52cb1584d1ede"
+          },
+          "reference": {
+            "file": "reference.esri.json",
+            "sha256": "baf49287e1fbd652e09cbe0a66998b3b96bc7c1e66717dbc1846535dc9bc151d"
+          }
+        },
+        "split": "validation",
+        "label_role": "independent-source cartographic check; unreviewed historical/mixed lineage",
+        "resolved_trace_params": {
+          "corridor": 12.0,
+          "smoothing": 0.0,
+          "terrain_weight": 8.0,
+          "spacing": 3.0,
+          "simplify": 0.75,
+          "line_smoothing": 0.0,
+          "relax_anchors": true
+        },
+        "max_dimension": 2500
+      },
+      "local_report_sha256": "4aa4edc6a72468bc9012c8874aa3a16655b4b3070849d031fda2223a8423c14d",
+      "total_solver_and_scoring_seconds": 14.315939620981226,
+      "reaches": [
+        {
+          "id": "ma-218445-0",
+          "guide_count": 2,
+          "status": "failure",
+          "seconds": 3.451730968998163,
+          "error_type": "ValueError",
+          "message_group": "native_sink_rejection"
+        },
+        {
+          "id": "ma-219209-0",
+          "guide_count": 2,
+          "status": "failure",
+          "seconds": 0.3163924090040382,
+          "error_type": "ValueError",
+          "message_group": "native_sink_rejection"
+        },
+        {
+          "id": "ma-221442-0",
+          "guide_count": 2,
+          "status": "failure",
+          "seconds": 0.18423707799229305,
+          "error_type": "ValueError",
+          "message_group": "native_sink_rejection"
+        },
+        {
+          "id": "ma-225642-0",
+          "guide_count": 2,
+          "status": "failure",
+          "seconds": 1.2277719489939045,
+          "error_type": "ValueError",
+          "message_group": "native_sink_rejection"
+        },
+        {
+          "id": "ma-226018-0",
+          "guide_count": 2,
+          "status": "failure",
+          "seconds": 1.1533630579942837,
+          "error_type": "ValueError",
+          "message_group": "native_sink_rejection"
+        },
+        {
+          "id": "ma-226019-0",
+          "guide_count": 2,
+          "status": "failure",
+          "seconds": 0.652180238001165,
+          "error_type": "ValueError",
+          "message_group": "native_sink_rejection"
+        },
+        {
+          "id": "ma-234766-0",
+          "guide_count": 2,
+          "status": "failure",
+          "seconds": 7.827699300833046e-05,
+          "error_type": "ValueError",
+          "message_group": "memory_budget"
+        },
+        {
+          "id": "ma-235838-0",
+          "guide_count": 2,
+          "status": "failure",
+          "seconds": 2.0502993720583618e-05,
+          "error_type": "ValueError",
+          "message_group": "memory_budget"
+        },
+        {
+          "id": "ma-236378-0",
+          "guide_count": 2,
+          "status": "failure",
+          "seconds": 0.1549425530101871,
+          "error_type": "ValueError",
+          "message_group": "native_sink_rejection"
+        },
+        {
+          "id": "ma-236383-0",
+          "guide_count": 2,
+          "status": "failure",
+          "seconds": 0.25089019899314735,
+          "error_type": "ValueError",
+          "message_group": "native_sink_rejection"
+        },
+        {
+          "id": "ma-238499-0",
+          "guide_count": 2,
+          "status": "failure",
+          "seconds": 0.7779396169935353,
+          "error_type": "ValueError",
+          "message_group": "native_sink_rejection"
+        },
+        {
+          "id": "ma-238500-0",
+          "guide_count": 2,
+          "status": "failure",
+          "seconds": 0.940377412000089,
+          "error_type": "ValueError",
+          "message_group": "native_sink_rejection"
+        },
+        {
+          "id": "ma-239273-0",
+          "guide_count": 2,
+          "status": "failure",
+          "seconds": 0.39055763800570276,
+          "error_type": "ValueError",
+          "message_group": "native_sink_rejection"
+        },
+        {
+          "id": "ma-239275-0",
+          "guide_count": 2,
+          "status": "failure",
+          "seconds": 0.9754099279962247,
+          "error_type": "ValueError",
+          "message_group": "native_sink_rejection"
+        },
+        {
+          "id": "ma-239276-0",
+          "guide_count": 2,
+          "status": "failure",
+          "seconds": 0.14326590301061515,
+          "error_type": "ValueError",
+          "message_group": "native_sink_rejection"
+        },
+        {
+          "id": "ma-239751-0",
+          "guide_count": 2,
+          "status": "failure",
+          "seconds": 5.013200279790908e-05,
+          "error_type": "ValueError",
+          "message_group": "memory_budget"
+        },
+        {
+          "id": "ma-240256-0",
+          "guide_count": 2,
+          "status": "failure",
+          "seconds": 0.7903880719968583,
+          "error_type": "ValueError",
+          "message_group": "native_sink_rejection"
+        },
+        {
+          "id": "ma-255852-0",
+          "guide_count": 2,
+          "status": "failure",
+          "seconds": 2.9063436860014917,
+          "error_type": "ValueError",
+          "message_group": "native_sink_rejection"
+        }
+      ]
+    }
+  },
+  "comparisons": {
+    "minnesota": {
+      "total_reaches": 3,
+      "comparable_reaches": 0,
+      "unscored_reaches": [
+        "mn-7672",
+        "mn-7767",
+        "mn-7829"
+      ],
+      "paired_reaches": [],
+      "median_paired_p95_delta": null,
+      "median_paired_relative_gain": null,
+      "baseline_counts": {
+        "total": 3,
+        "candidate": 3,
+        "failure": 0,
+        "abstention": 0,
+        "ambiguous": 0
+      },
+      "contender_counts": {
+        "total": 3,
+        "candidate": 0,
+        "failure": 3,
+        "abstention": 0,
+        "ambiguous": 0
+      },
+      "promotion_evidence": false,
+      "limitation": "Exposed unreviewed pilots; paired survivors do not establish holdout gain"
+    },
+    "massachusetts": {
+      "total_reaches": 18,
+      "comparable_reaches": 0,
+      "unscored_reaches": [
+        "ma-218445-0",
+        "ma-219209-0",
+        "ma-221442-0",
+        "ma-225642-0",
+        "ma-226018-0",
+        "ma-226019-0",
+        "ma-234766-0",
+        "ma-235838-0",
+        "ma-236378-0",
+        "ma-236383-0",
+        "ma-238499-0",
+        "ma-238500-0",
+        "ma-239273-0",
+        "ma-239275-0",
+        "ma-239276-0",
+        "ma-239751-0",
+        "ma-240256-0",
+        "ma-255852-0"
+      ],
+      "paired_reaches": [],
+      "median_paired_p95_delta": null,
+      "median_paired_relative_gain": null,
+      "baseline_counts": {
+        "total": 18,
+        "candidate": 18,
+        "failure": 0,
+        "abstention": 0,
+        "ambiguous": 0
+      },
+      "contender_counts": {
+        "total": 18,
+        "candidate": 0,
+        "failure": 18,
+        "abstention": 0,
+        "ambiguous": 0
+      },
+      "promotion_evidence": false,
+      "limitation": "Exposed unreviewed pilots; paired survivors do not establish holdout gain"
+    }
+  },
+  "promotion_evidence": false,
+  "caveats": [
+    "Both pilots are exposed and unreviewed; no independent blind acceptance corpus",
+    "Legacy threshold success is only full candidate coverage: no p95 accuracy limit was supplied",
+    "Solver exceptions count as failures, including actionable sink rejection; no error-string inference of abstention",
+    "Distances use uniform arc-length midpoint sampling to continuous target segments; at most 0.5 projected units sampling uncertainty per direction",
+    "Frozen MA v1 crop omitted source metre band-unit tag; native samples and identity calibration preserved",
+    "Public summary intentionally excludes geometry, raw engine diagnostics, error text, source paths and machine identity"
+  ]
+}

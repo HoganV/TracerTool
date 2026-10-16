@@ -37,6 +37,15 @@ Auto smoke; it still does not establish real-data usefulness or hosted CI.
 No independent human labels/productivity, new native interactive Windows/GIS
 acceptance or binary redistribution clearance is established by these checks.
 
+Final pre-publication local integration passed **650 tests in 84.92 seconds**
+plus the Auto/source/schema/export smoke. A reproduced repeated full-domain
+retry was fixed with flat and NoData-barrier regressions and independently
+rechecked: the real 710-by-710 examples refuse after at most two distinct native
+domains, without repeating the full source. Final four real-pilot replays on
+the candidate modules retain 21/21 Auto failures and 21 legacy candidates; the
+source-hash-bound sanitized summary is in the evaluation results. These local
+checks do not assert hosted success; exact GitHub runs are verified separately.
+
 ## 0.2.2 — terrain display and draft tracing, 2026-10-16
 
 The final Linux source suite passed **457 tests in 46.49 seconds**, using Qt's

@@ -1,0 +1,377 @@
+{
+  "initial_geometry_returned": 0,
+  "cycle1_geometry_returned": 0,
+  "total_reaches": 21,
+  "initial_failure_causes": {
+    "native_sink": 17,
+    "memory_budget": 4
+  },
+  "final_failure_causes": {
+    "retained_sink": 21,
+    "memory_budget": 0
+  },
+  "pilots": {
+    "minnesota": {
+      "counts": {
+        "total": 3,
+        "candidate": 0,
+        "failure": 3,
+        "abstention": 0,
+        "ambiguous": 0
+      },
+      "reach_summary": {
+        "scored_reaches": 0,
+        "symmetric_p95": null
+      },
+      "module_sha256": {
+        "evaluation.py": "e84b183bd80957e9f05cdd486a52c8e07e378e94cf40b070033e6dcb58d5cfe4",
+        "terrain.py": "a85d16438c555d552c01c212d0bd3838442504ae895dfc9c13e884ef6b3a2b33",
+        "tracing.py": "578b3f2040b0823ed8eface625af1a1b5c0a3bf801c80ecfc5ffb600984dc628",
+        "analysis_grid.py": "8c567ac54a0769a01074ea05f3765162bc7949af987d46415e3aee5e60d07011",
+        "stream_auto.py": "3646f464f2e451102f96964dadda039a2dd2c37c0d0f5ab3edfa6e74740bf572"
+      },
+      "seconds": 34.93083205498988
+    },
+    "massachusetts": {
+      "counts": {
+        "total": 18,
+        "candidate": 0,
+        "failure": 18,
+        "abstention": 0,
+        "ambiguous": 0
+      },
+      "reach_summary": {
+        "scored_reaches": 0,
+        "symmetric_p95": null
+      },
+      "module_sha256": {
+        "evaluation.py": "e84b183bd80957e9f05cdd486a52c8e07e378e94cf40b070033e6dcb58d5cfe4",
+        "terrain.py": "a85d16438c555d552c01c212d0bd3838442504ae895dfc9c13e884ef6b3a2b33",
+        "tracing.py": "578b3f2040b0823ed8eface625af1a1b5c0a3bf801c80ecfc5ffb600984dc628",
+        "analysis_grid.py": "8c567ac54a0769a01074ea05f3765162bc7949af987d46415e3aee5e60d07011",
+        "stream_auto.py": "3646f464f2e451102f96964dadda039a2dd2c37c0d0f5ab3edfa6e74740bf572"
+      },
+      "seconds": 56.18448729699594
+    }
+  },
+  "per_reach": [
+    {
+      "id": "mn-7672",
+      "status": "failure",
+      "seconds": 1.057445900994935,
+      "route_retained_depression_count": 10,
+      "route_treated_depression_count": 32,
+      "retained_max_depth_source_units": 0.106842041015625,
+      "retained_max_area_cells": 32,
+      "depth_limit_source_units": 0.04425740026488795,
+      "domain_changed_cells": 3735,
+      "domain_max_applied_depth_source_units": 0.04425048828125,
+      "retained_over_depth_limit": 9,
+      "retained_over_area_limit": 5
+    },
+    {
+      "id": "mn-7767",
+      "status": "failure",
+      "seconds": 3.5517607090005185,
+      "route_retained_depression_count": 15,
+      "route_treated_depression_count": 59,
+      "retained_max_depth_source_units": 0.1644287109375,
+      "retained_max_area_cells": 32,
+      "depth_limit_source_units": 0.04791473133853061,
+      "domain_changed_cells": 11509,
+      "domain_max_applied_depth_source_units": 0.047882080078125,
+      "retained_over_depth_limit": 13,
+      "retained_over_area_limit": 6
+    },
+    {
+      "id": "mn-7829",
+      "status": "failure",
+      "seconds": 30.321625444994424,
+      "route_retained_depression_count": 67,
+      "route_treated_depression_count": 249,
+      "retained_max_depth_source_units": 0.293365478515625,
+      "retained_max_area_cells": 183,
+      "depth_limit_source_units": 0.04702810562370815,
+      "domain_changed_cells": 38368,
+      "domain_max_applied_depth_source_units": 0.047027587890625,
+      "retained_over_depth_limit": 47,
+      "retained_over_area_limit": 49
+    },
+    {
+      "id": "ma-218445-0",
+      "status": "failure",
+      "seconds": 3.6969851739995647,
+      "route_retained_depression_count": 3,
+      "route_treated_depression_count": 20,
+      "retained_max_depth_source_units": 0.1118011474609375,
+      "retained_max_area_cells": 87,
+      "depth_limit_source_units": 0.029166291743847276,
+      "domain_changed_cells": 4241,
+      "domain_max_applied_depth_source_units": 0.0291595458984375,
+      "retained_over_depth_limit": 3,
+      "retained_over_area_limit": 3
+    },
+    {
+      "id": "ma-219209-0",
+      "status": "failure",
+      "seconds": 0.30867940800089855,
+      "route_retained_depression_count": 4,
+      "route_treated_depression_count": 9,
+      "retained_max_depth_source_units": 0.1327972412109375,
+      "retained_max_area_cells": 452,
+      "depth_limit_source_units": 0.030680944006668983,
+      "domain_changed_cells": 809,
+      "domain_max_applied_depth_source_units": 0.0304412841796875,
+      "retained_over_depth_limit": 4,
+      "retained_over_area_limit": 2
+    },
+    {
+      "id": "ma-221442-0",
+      "status": "failure",
+      "seconds": 0.2521868860058021,
+      "route_retained_depression_count": 4,
+      "route_treated_depression_count": 4,
+      "retained_max_depth_source_units": 0.2768402099609375,
+      "retained_max_area_cells": 2252,
+      "depth_limit_source_units": 0.02416978641344152,
+      "domain_changed_cells": 366,
+      "domain_max_applied_depth_source_units": 0.024139404296875,
+      "retained_over_depth_limit": 4,
+      "retained_over_area_limit": 4
+    },
+    {
+      "id": "ma-225642-0",
+      "status": "failure",
+      "seconds": 1.3368464020022657,
+      "route_retained_depression_count": 4,
+      "route_treated_depression_count": 7,
+      "retained_max_depth_source_units": 0.2599945068359375,
+      "retained_max_area_cells": 3019,
+      "depth_limit_source_units": 0.03383954811572401,
+      "domain_changed_cells": 2259,
+      "domain_max_applied_depth_source_units": 0.033660888671875,
+      "retained_over_depth_limit": 4,
+      "retained_over_area_limit": 4
+    },
+    {
+      "id": "ma-226018-0",
+      "status": "failure",
+      "seconds": 1.409778073997586,
+      "route_retained_depression_count": 15,
+      "route_treated_depression_count": 15,
+      "retained_max_depth_source_units": 0.1302032470703125,
+      "retained_max_area_cells": 473,
+      "depth_limit_source_units": 0.026654185551850295,
+      "domain_changed_cells": 1308,
+      "domain_max_applied_depth_source_units": 0.0262603759765625,
+      "retained_over_depth_limit": 15,
+      "retained_over_area_limit": 13
+    },
+    {
+      "id": "ma-226019-0",
+      "status": "failure",
+      "seconds": 0.7830412390030688,
+      "route_retained_depression_count": 12,
+      "route_treated_depression_count": 11,
+      "retained_max_depth_source_units": 0.126983642578125,
+      "retained_max_area_cells": 99,
+      "depth_limit_source_units": 0.026931256087732315,
+      "domain_changed_cells": 1114,
+      "domain_max_applied_depth_source_units": 0.0262603759765625,
+      "retained_over_depth_limit": 12,
+      "retained_over_area_limit": 7
+    },
+    {
+      "id": "ma-234766-0",
+      "status": "failure",
+      "seconds": 15.07902285498858,
+      "route_retained_depression_count": 40,
+      "route_treated_depression_count": 77,
+      "retained_max_depth_source_units": 0.0870819091796875,
+      "retained_max_area_cells": 69,
+      "depth_limit_source_units": 0.030551644423257373,
+      "domain_changed_cells": 19232,
+      "domain_max_applied_depth_source_units": 0.030548095703125,
+      "retained_over_depth_limit": 37,
+      "retained_over_area_limit": 28
+    },
+    {
+      "id": "ma-235838-0",
+      "status": "failure",
+      "seconds": 12.949641989005613,
+      "route_retained_depression_count": 37,
+      "route_treated_depression_count": 30,
+      "retained_max_depth_source_units": 0.3674468994140625,
+      "retained_max_area_cells": 882,
+      "depth_limit_source_units": 0.02835355150526002,
+      "domain_changed_cells": 9497,
+      "domain_max_applied_depth_source_units": 0.028350830078125,
+      "retained_over_depth_limit": 36,
+      "retained_over_area_limit": 28
+    },
+    {
+      "id": "ma-236378-0",
+      "status": "failure",
+      "seconds": 0.18319498900382314,
+      "route_retained_depression_count": 3,
+      "route_treated_depression_count": 9,
+      "retained_max_depth_source_units": 0.0567779541015625,
+      "retained_max_area_cells": 52,
+      "depth_limit_source_units": 0.025665967307204426,
+      "domain_changed_cells": 377,
+      "domain_max_applied_depth_source_units": 0.0254974365234375,
+      "retained_over_depth_limit": 3,
+      "retained_over_area_limit": 3
+    },
+    {
+      "id": "ma-236383-0",
+      "status": "failure",
+      "seconds": 0.30994433000159916,
+      "route_retained_depression_count": 8,
+      "route_treated_depression_count": 11,
+      "retained_max_depth_source_units": 0.0567779541015625,
+      "retained_max_area_cells": 52,
+      "depth_limit_source_units": 0.024409914211205936,
+      "domain_changed_cells": 463,
+      "domain_max_applied_depth_source_units": 0.0242462158203125,
+      "retained_over_depth_limit": 7,
+      "retained_over_area_limit": 7
+    },
+    {
+      "id": "ma-238499-0",
+      "status": "failure",
+      "seconds": 0.9748304810054833,
+      "route_retained_depression_count": 8,
+      "route_treated_depression_count": 16,
+      "retained_max_depth_source_units": 0.088104248046875,
+      "retained_max_area_cells": 748,
+      "depth_limit_source_units": 0.029729668500140714,
+      "domain_changed_cells": 1127,
+      "domain_max_applied_depth_source_units": 0.02972412109375,
+      "retained_over_depth_limit": 6,
+      "retained_over_area_limit": 8
+    },
+    {
+      "id": "ma-238500-0",
+      "status": "failure",
+      "seconds": 1.247955817001639,
+      "route_retained_depression_count": 8,
+      "route_treated_depression_count": 16,
+      "retained_max_depth_source_units": 0.1329193115234375,
+      "retained_max_area_cells": 436,
+      "depth_limit_source_units": 0.02824272329090721,
+      "domain_changed_cells": 1488,
+      "domain_max_applied_depth_source_units": 0.0281982421875,
+      "retained_over_depth_limit": 8,
+      "retained_over_area_limit": 5
+    },
+    {
+      "id": "ma-239273-0",
+      "status": "failure",
+      "seconds": 0.5896305109927198,
+      "route_retained_depression_count": 10,
+      "route_treated_depression_count": 6,
+      "retained_max_depth_source_units": 1.2265625,
+      "retained_max_area_cells": 97,
+      "depth_limit_source_units": 0.020558633762445863,
+      "domain_changed_cells": 824,
+      "domain_max_applied_depth_source_units": 0.0205535888671875,
+      "retained_over_depth_limit": 10,
+      "retained_over_area_limit": 6
+    },
+    {
+      "id": "ma-239275-0",
+      "status": "failure",
+      "seconds": 1.3103628529934213,
+      "route_retained_depression_count": 15,
+      "route_treated_depression_count": 15,
+      "retained_max_depth_source_units": 0.4464874267578125,
+      "retained_max_area_cells": 1144,
+      "depth_limit_source_units": 0.026903549034144113,
+      "domain_changed_cells": 1365,
+      "domain_max_applied_depth_source_units": 0.0268402099609375,
+      "retained_over_depth_limit": 15,
+      "retained_over_area_limit": 9
+    },
+    {
+      "id": "ma-239276-0",
+      "status": "failure",
+      "seconds": 0.20608123099373188,
+      "route_retained_depression_count": 6,
+      "route_treated_depression_count": 4,
+      "retained_max_depth_source_units": 0.124359130859375,
+      "retained_max_area_cells": 75,
+      "depth_limit_source_units": 0.027448454421378752,
+      "domain_changed_cells": 468,
+      "domain_max_applied_depth_source_units": 0.0268402099609375,
+      "retained_over_depth_limit": 6,
+      "retained_over_area_limit": 3
+    },
+    {
+      "id": "ma-239751-0",
+      "status": "failure",
+      "seconds": 11.44132231399999,
+      "route_retained_depression_count": 25,
+      "route_treated_depression_count": 35,
+      "retained_max_depth_source_units": 1.00299072265625,
+      "retained_max_area_cells": 2359,
+      "depth_limit_source_units": 0.022553541620796404,
+      "domain_changed_cells": 9358,
+      "domain_max_applied_depth_source_units": 0.022552490234375,
+      "retained_over_depth_limit": 25,
+      "retained_over_area_limit": 14
+    },
+    {
+      "id": "ma-240256-0",
+      "status": "failure",
+      "seconds": 0.8527844640047988,
+      "route_retained_depression_count": 12,
+      "route_treated_depression_count": 27,
+      "retained_max_depth_source_units": 0.140045166015625,
+      "retained_max_area_cells": 63,
+      "depth_limit_source_units": 0.024936348229381775,
+      "domain_changed_cells": 1441,
+      "domain_max_applied_depth_source_units": 0.02490234375,
+      "retained_over_depth_limit": 11,
+      "retained_over_area_limit": 8
+    },
+    {
+      "id": "ma-255852-0",
+      "status": "failure",
+      "seconds": 3.252198279995355,
+      "route_retained_depression_count": 11,
+      "route_treated_depression_count": 30,
+      "retained_max_depth_source_units": 1.0989837646484375,
+      "retained_max_area_cells": 720,
+      "depth_limit_source_units": 0.02519494739620499,
+      "domain_changed_cells": 3922,
+      "domain_max_applied_depth_source_units": 0.0251922607421875,
+      "retained_over_depth_limit": 10,
+      "retained_over_area_limit": 9
+    }
+  ],
+  "hypotheses": [
+    "Outlet-connected flats and bounded noise-scale depressions account for enough raw sink failures to improve full-reach coverage (not supported by full-reach pilot results).",
+    "500k cell guard rejects fitting native domains despite resource headroom (supported; four memory refusals now reach analysis, but fail retained-basin QA)."
+  ],
+  "limitations": [
+    "No new usable complete pilot reach; no promotion evidence.",
+    "Source-Z roughness proxy is not calibrated measurement noise or proof a depression is artificial.",
+    "Declared elevation units absent on both frozen pilots; no physical-depth or vertical datum assumption made.",
+    "Reference endpoint orientation can be uphill; retained-basin policy deliberately not relaxed for this.",
+    "No independent acceptance set, no new thresholds selected to fit pilot outputs."
+  ],
+  "distance_comparison": {
+    "paired_reaches": 0,
+    "p95": null,
+    "gain": null,
+    "reason": "Neither old nor revised Auto returned complete geometry; missing predictions are not zero error."
+  },
+  "focused_verification": {
+    "passed": 293,
+    "seconds": 36.38,
+    "git_diff_check": "passed"
+  },
+  "report_kind": "exposed-pilot-cycle1",
+  "promotion_evidence": false
+}

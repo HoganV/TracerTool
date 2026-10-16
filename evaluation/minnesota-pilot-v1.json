@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "id": "minnesota-cross-vintage-pilot-v1",
+  "split": "development",
+  "catchment_group": "MN-lake-county-pilot",
+  "label_role": "terrain-derived supervision; cross-vintage discrepancy check",
+  "label_target": "DNR unsmoothed lidar-derived watercourse centerline, not surveyed bed thalweg",
+  "independent_review": false,
+  "crs": "EPSG:26915",
+  "assets": {
+    "raster": {"file": "terrain-1m.tif", "sha256": "091239416e60c86d2f362aab05ecf425df262f520ebcd6f5303a8297fca36f97"},
+    "reference": {"file": "watercourses.esri.json", "sha256": "a8fa15e872094667bf45513f34f608b18df7eeaf10bc216e522f51f102491960"}
+  },
+  "cases": [
+    {"id": "mn-7672", "feature_id": 7672, "path_index": 0, "guide_indices": [0, -1]},
+    {"id": "mn-7767", "feature_id": 7767, "path_index": 0, "guide_indices": [0, -1]},
+    {"id": "mn-7829", "feature_id": 7829, "path_index": 0, "guide_indices": [0, -1]}
+  ],
+  "guide_policy": "Exactly two reference endpoints. Reference-derived intent is disclosed; no interior reference coordinates enter solver. Same guide budget for all engines. No per-reach tuning.",
+  "conditioning_policy": "Legacy unchanged; Auto analysis conditioning disclosed in engine metrics. Do not burn labels.",
+  "lineage": {
+    "reference_service": "https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_dnr/water_dnr_hydrography_from_lidar/FeatureServer/1",
+    "reference_metadata": "https://www.arcgis.com/sharing/rest/content/items/49babc6c5052422499fa5c996a3ddd39/info/metadata/metadata.xml",
+    "reference_acquisition": "2011 lidar, hydrologic modification including culvert breaching and extraction/QA",
+    "raster_service": "https://enterprise.gisdata.mn.gov/agsimg/rest/services/MnTopo/2nd_Generation_Seamless_Lidar_DEM/ImageServer",
+    "raster_acquisition": "service metadata 2021-2023; 1m EPSG:26915 export is a derived grid",
+    "reference_burned_into_evaluation_dem": "not established; no harness burning; cross-vintage pairing",
+    "license": "https://www.dnr.state.mn.us/sitetools/data_software_license.html",
+    "redistribution": "No raw data distributed. Retain official terms and provenance locally."
+  },
+  "freeze": "Case selection, hashes, guides and development allocation frozen before this harness solver outputs. Original exploratory legacy outputs were already known; never treat this pilot as blind.",
+  "holdout": "No reviewed independent validation/acceptance reaches available. Future final holdout must be acquired and reviewed independently, frozen before tuning and not opened here."
+}
