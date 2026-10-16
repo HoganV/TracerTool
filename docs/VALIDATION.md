@@ -1,5 +1,42 @@
 # Validation record
 
+## 0.3 experimental implementation — integration in progress
+
+The sanitized 0.2.2 baseline passed 457 tests before changes. A subsequent local
+Linux integration snapshot passed **606 tests in 63.39 seconds**, followed by
+the expanded smoke test. This snapshot is not yet a release commit or hosted
+CI result. Later changes must be reverified.
+
+The real Qt XCB application was exercised in an isolated Xvfb virtual desktop
+using mouse events on generated meandering terrain: Auto selection, two guide
+clicks, preview, acceptance, save/reopen and shapefile export. That case produced
+68 vertices, retained source-sampled Z and exact saved geometry. Independent
+GDAL `ogrinfo` read one 3D Line String with EPSG:32615. Images were inspected;
+secondary diagnostics required sidebar scrolling. This is agent-operated virtual
+desktop evidence, not a novice productivity study or a physical Windows session.
+
+Independent release review found and then verified fixes for dirty-source build
+provenance, untracked documentation copying and extraction-path aliases. Twenty
+release-integrity tests passed. Independent persistence review reproduced two
+defects (protection lost after a harmless edit; malformed engine evidence) and
+confirmed their fixes with regression and round-trip coverage.
+
+The first genuine public-pair comparison **failed Auto promotion**: legacy
+returned 21 candidates, whereas Auto returned no geometry (17 native-sink and
+4 domain-budget rejections). Neither an empty result nor a green synthetic suite
+is an accuracy improvement. Source/data hashes and discrepancy definitions are
+recorded in [the evaluation report](../evaluation/README.md). Those exposed
+development/validation pilots are not blind acceptance. A bounded algorithm
+revision completed with outlet-connected flats and bounded tiny-pit treatment.
+All 21 revised attempts still refused retained basins; four former domain failures
+now reached analysis. No usable complete real-pilot path or geometric gain was
+demonstrated. The initial report is retained rather than overwritten. A later
+parent integration run passed **635 tests in 82.49 seconds** and the expanded
+Auto smoke; it still does not establish real-data usefulness or hosted CI.
+
+No independent human labels/productivity, new native interactive Windows/GIS
+acceptance or binary redistribution clearance is established by these checks.
+
 ## 0.2.2 — terrain display and draft tracing, 2026-10-16
 
 The final Linux source suite passed **457 tests in 46.49 seconds**, using Qt's

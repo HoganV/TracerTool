@@ -1,5 +1,13 @@
 # Application module contracts
 
+## Experimental Auto stream implementation (0.3)
+
+The active additive contract and disjoint file ownership are recorded in
+[STREAM_CONTRACT.md](STREAM_CONTRACT.md). Auto uses source-native analysis and
+returns working-grid cell coordinates only as a compatibility adapter; native
+XYZ remains authoritative. Legacy routing and old saved geometry stay unchanged.
+New engine selection is experimental and explicit pending independent promotion.
+
 ## Feedback revision (2026-10-15–16)
 
 Disjoint ownership for this revision: tracing lane owns `tracing.py` and
