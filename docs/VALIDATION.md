@@ -46,6 +46,14 @@ the candidate modules retain 21/21 Auto failures and 21 legacy candidates; the
 source-hash-bound sanitized summary is in the evaluation results. These local
 checks do not assert hosted success; exact GitHub runs are verified separately.
 
+The initial hosted PR candidate passed 650 tests on Linux Python 3.11, then
+aborted at interpreter finalization with `bool_dealloc` (exit 134). Linux 3.12
+and Windows 3.13/3.14.7 source jobs passed. The failure was reproduced locally
+with Python 3.11.17 and PySide6/Shiboken 6.12.0; changing that Qt family to
+6.10.3 produced 650 passes with clean exit, followed by dependency consistency
+and expanded smoke success. A Python-3.11-only dependency marker records this
+verified workaround; subsequent hosted runs must independently confirm it.
+
 ## 0.2.2 — terrain display and draft tracing, 2026-10-16
 
 The final Linux source suite passed **457 tests in 46.49 seconds**, using Qt's
