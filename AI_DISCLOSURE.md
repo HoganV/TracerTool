@@ -6,6 +6,15 @@ than autocomplete or occasional editing assistance.
 
 ## Scope and human direction
 
+The 0.3 experimental stream work is implemented and reviewed with parallel
+Hermes coding agents. The user required gpt-6-astra for workers; running workers
+were stopped and restarted with that explicit routing. Earlier partial work was
+produced by another model and subsequently reviewed, not relabeled as Astra work.
+Tests, public-data comparisons and virtual-desktop interaction are agent-produced
+evidence, not independent human terrain or usability validation. Automation commits
+use an explicitly disclosed TracerTool Agent identity rather than impersonating
+the human maintainer. No trained AI model is required at application runtime.
+
 AI agents contributed application architecture, terrain-processing and editing
 code, tests, documentation, literature summaries, packaging scripts and local
 verification. A human supplied the intended workflow, requirements, private

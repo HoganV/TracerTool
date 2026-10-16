@@ -367,6 +367,8 @@ class TerrainCanvas(QGraphicsView):
         if self.locked:
             if event.key() == Qt.Key.Key_Escape:
                 self.cancelRequested.emit()
+            elif event.key() == Qt.Key.Key_F:
+                self.fit()
             return
         if event.key() in (Qt.Key.Key_Delete,):
             self.deleteRequested.emit()

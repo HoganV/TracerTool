@@ -1,5 +1,23 @@
 # Terrain tracing: evidence and implementation decisions
 
+## 0.3 experimental implementation status
+
+The replacement work and scientific acceptance criteria are recorded in
+[STREAM_OVERHAUL_PLAN.md](STREAM_OVERHAUL_PLAN.md); autonomous delivery is bounded
+by [STREAM_IMPLEMENTATION_RUNBOOK.md](STREAM_IMPLEMENTATION_RUNBOOK.md).
+The current source-native experiment combines directional opposing-bank terrain
+responses, flat-resolved drainage evidence and a joint guide-state path search.
+The bounded revision treats only tiny complete depressions on an analysis copy,
+with explicit source-Z roughness/depth diagnostics; it does not infer culverts or
+breach material basins. These heuristics still returned no complete real-pilot
+geometry and do not establish an improvement over legacy.
+It is not GeoNet, a certified thalweg detector or a complete hydrologic network.
+No trained model is bundled. The initial real-data comparison failed all 21 Auto
+attempts through sink/domain refusals; [evaluation evidence](../evaluation/README.md)
+retains failures rather than presenting zero output as zero error. Subsequent
+algorithm revisions must have separate versioned reports and cannot turn these
+already-exposed pilots into blind acceptance.
+
 Research reviewed 2026-10-14; implementation decisions revised 2026-10-16.
 These sources inform the design; TracerTool is not an implementation of every
 method listed below. The v0.2 goal is to reduce clicking while a person supplies

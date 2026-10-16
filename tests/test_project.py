@@ -49,19 +49,77 @@ def terrain_file(tmp_path):
     return terrain
 
 
+@pytest.mark.parametrize('field,value', [
+    ('engine_evidence', []), ('engine_evidence', {'metrics': []}),
+    ('engine_evidence', {'warnings': 'bad'}),
+    ('engine_evidence', {'stale': 'yes'}),
+    ('engine_evidence', {'engine': 'stream_auto', 'engine_version': 1}),
+    ('metrics', {'engine': 'stream_auto'}),
+    ('metrics', {'engine_version': 2}),
+    ('metrics', {'diagnostics': {}}),
+    ('metrics', {'diagnostics': ['bad']}),
+    ('metrics', {'diagnostics': [{'code': 3, 'message': 'bad'}]}),
+    ('metrics', {'diagnostics': [{'code': 'bad', 'message': 'bad', 'location': [1]}]}),
+    ('engine_evidence', {'metrics': {'diagnostics': [None]}}),
+    ('protected_junctions', [[1, 2]]),
+    ('protected_junctions', 'bad'),
+])
+def test_invalid_engine_and_junction_metadata_rejected_on_save_and_load(tmp_path, terrain_file, feature, field, value):
+    path = tmp_path / 'invalid-metadata.json'
+    project.save_project(path, terrain_file, [feature], {})
+    document = json.loads(path.read_text())
+    feature[field] = value
+    with pytest.raises(ValueError, match='engine|diagnostic|protected'):
+        project.save_project(path, terrain_file, [feature], {})
+    document['features'][0][field] = value
+    path.write_text(json.dumps(document))
+    with pytest.raises(ValueError, match='engine|diagnostic|protected'):
+        project.load_project(path)
+
+
 def test_project_round_trip_relative_path(tmp_path, terrain_file, feature):
     destination = tmp_path / "example.tracer.json"
     feature["visible"] = False
     settings = {"style": "Hillshade", "opacity": 0.4, "camera": [1, 2, 3]}
     project.save_project(destination, terrain_file, [feature], settings)
     saved = json.loads(destination.read_text())
-    assert saved["version"] == 1
+    assert saved["version"] == 2
     assert saved["terrain_path"] == (Path("terrain") / "sample.tif").as_posix()
     loaded = project.load_project(destination)
     assert loaded["terrain_path"] == str(terrain_file.resolve())
     assert loaded["features"] == [feature]
     assert loaded["settings"] == settings
     assert not list(tmp_path.glob("*.tmp"))
+
+
+def test_schema1_migrates_legacy_identity_without_retracing(tmp_path, terrain_file, feature):
+    path = tmp_path / "legacy.json"
+    old = copy.deepcopy(feature)
+    old.pop("engine", None)
+    old.pop("engine_version", None)
+    document = {"format": project.PROJECT_FORMAT, "version": 1,
+                "terrain_path": str(terrain_file), "features": [old], "settings": {}}
+    path.write_text(json.dumps(document))
+    original = path.read_bytes()
+    loaded = project.load_project(path)
+    assert loaded["version"] == 2
+    assert loaded["features"][0] == {**old, "engine": "legacy", "engine_version": 1}
+    assert path.read_bytes() == original
+    project.save_project(path, terrain_file, loaded["features"], loaded["settings"])
+    assert json.loads(path.read_text())["version"] == 2
+    assert project.load_project(path)["features"][0]["coordinates"] == old["coordinates"]
+
+
+def test_schema1_explicit_unknown_engine_is_not_downgraded(tmp_path, terrain_file, feature):
+    feature.update(engine='future', engine_version=42)
+    path = tmp_path / 'future-v1.json'
+    path.write_text(json.dumps({'format': project.PROJECT_FORMAT, 'version': 1,
+                               'terrain_path': str(terrain_file), 'features': [feature], 'settings': {}}))
+    loaded = project.load_project(path)['features'][0]
+    assert loaded['engine'] == 'future'
+    assert loaded['engine_version'] == 42
+    with pytest.raises(ValueError, match='Unsupported.*engine'):
+        project.require_supported_engine(loaded)
 
 
 def test_project_moves_with_terrain(tmp_path, terrain_file, feature):
@@ -79,6 +137,20 @@ def test_empty_project_can_be_saved(tmp_path, terrain_file):
     destination = tmp_path / "empty.json"
     project.save_project(destination, terrain_file, [], {})
     assert project.load_project(destination)["features"] == []
+
+
+@pytest.mark.parametrize("engine,version", [("stream_auto", 1), ("legacy", 1)])
+def test_new_feature_derives_engine_from_result(engine, version):
+    result = SimpleNamespace(coordinates=[[0, 0, 2], [1, 1, 1]],
+                             metrics={"engine": engine, "engine_version": version}, warnings=[])
+    line = project.new_feature("Engine", "stream", result, Params())
+    assert (line["engine"], line["engine_version"]) == (engine, version)
+    result.metrics.clear()
+    assert line["metrics"]["engine"] == engine
+
+
+def test_new_feature_defaults_to_legacy(feature):
+    assert (feature["engine"], feature["engine_version"]) == ("legacy", 1)
 
 
 def test_new_feature_detaches_result_data():
@@ -101,7 +173,7 @@ def test_line_smoothing_roundtrip_in_feature_and_draft(tmp_path, terrain_file, k
     destination = tmp_path / "smooth.tracer.json"
     project.save_project(destination, terrain_file, [line], settings)
     loaded = project.load_project(destination)
-    assert loaded["version"] == 1
+    assert loaded["version"] == 2
     assert loaded["features"] == [line]
     assert loaded["features"][0]["parameters"]["line_smoothing"] == 4.5
     assert loaded["settings"] == settings
@@ -139,7 +211,7 @@ def test_relaxed_draft_roundtrip_moves_with_source_and_exports(tmp_path, terrain
     terrain_file.parent.rename(moved / "terrain")
     path.rename(moved / path.name)
     loaded = project.load_project(moved / path.name)
-    assert loaded["version"] == 1
+    assert loaded["version"] == 2
     assert loaded["terrain_path"] == str(moved / "terrain" / "sample.tif")
     assert loaded["features"] == [original]
     assert loaded["settings"] == settings
@@ -267,6 +339,45 @@ def test_invalid_features_cannot_replace_project(tmp_path, terrain_file, feature
     with pytest.raises(ValueError, match=message):
         project.save_project(destination, terrain_file, [feature], {})
     assert destination.read_bytes() == before
+
+
+@pytest.mark.parametrize("fields", [{"engine": ""}, {"engine": None}, {"engine": 1},
+    {"engine_version": True}, {"engine_version": 0}, {"engine_version": 1.5},
+    {"engine_version": "1"}, {"engine": "legacy", "engine_version": None}])
+def test_invalid_engine_metadata_rejected_on_save_and_load(tmp_path, terrain_file, feature, fields):
+    path = tmp_path / "engine.json"
+    project.save_project(path, terrain_file, [feature], {})
+    document = json.loads(path.read_text())
+    feature.update(fields)
+    with pytest.raises(ValueError, match="engine"):
+        project.save_project(path, terrain_file, [feature], {})
+    document["features"] = [feature]
+    path.write_text(json.dumps(document))
+    with pytest.raises(ValueError, match="engine"):
+        project.load_project(path)
+
+
+@pytest.mark.parametrize("engine,version", [("future", 1), ("stream_auto", 2), ("legacy", 2)])
+def test_unknown_engine_roundtrips_but_cannot_execute(tmp_path, terrain_file, feature, engine, version):
+    feature.update(engine=engine, engine_version=version)
+    path = tmp_path / "future.json"
+    project.save_project(path, terrain_file, [feature], {})
+    loaded = project.load_project(path)["features"][0]
+    assert loaded == feature
+    with pytest.raises(ValueError, match="Unsupported.*engine"):
+        project.require_supported_engine(loaded)
+
+
+@pytest.mark.parametrize("fields,expected", [({}, "legacy"), ({"engine": "legacy", "engine_version": 1}, "legacy"),
+    ({"engine": "stream_auto", "engine_version": 1}, "stream_auto")])
+def test_supported_engine_dispatch_is_explicit(fields, expected):
+    assert project.require_supported_engine(fields) == expected
+
+
+def test_adjacent_duplicate_xy_rejected_even_when_line_has_nonzero_length(tmp_path, terrain_file, feature):
+    feature['coordinates'].insert(1, [*feature['coordinates'][0][:2], 999])
+    with pytest.raises(ValueError, match='zero-length edge'):
+        project.save_project(tmp_path / 'duplicate-edge.json', terrain_file, [feature], {})
 
 
 def test_duplicate_feature_ids_rejected(tmp_path, terrain_file, feature):
@@ -565,12 +676,20 @@ def test_invalid_saved_drafts_rejected(tmp_path, terrain_file, draft):
         project.save_project(tmp_path / "bad.json", terrain_file, [], {"draft": draft})
 
 
+@pytest.mark.parametrize('settings', [{'stream_engine': ''}, {'stream_engine': 3},
+    {'draft': {'kind': 'stream', 'anchors': [], 'engine': None}},
+    {'draft': {'kind': 'stream', 'anchors': [], 'engine_version': True}}])
+def test_invalid_saved_engine_selection_rejected(tmp_path, terrain_file, settings):
+    with pytest.raises(ValueError, match='engine'):
+        project.save_project(tmp_path / 'engine.json', terrain_file, [], settings)
+
+
 def test_valid_source_identity_roundtrips_without_changing_version(tmp_path, terrain_file):
     settings = {"terrain_reference": {"sha256": "ab" * 32}}
     path = tmp_path / "identity.json"
     project.save_project(path, terrain_file, [], settings)
     loaded = project.load_project(path)
-    assert loaded["version"] == 1
+    assert loaded["version"] == 2
     assert loaded["settings"] == settings
 
 

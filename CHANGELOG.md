@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.0 — experimental Auto stream source prerelease
+
+- Added explicit opt-in source-native Auto stream proposals with directional
+  channel and drainage evidence, bounded domains and structured uncertainty.
+  Legacy remains the default pending independent qualification.
+- Added paired-stream evaluation tooling with bidirectional arc-length metrics
+  and explicit failed/unresolved-case accounting; no trained model is bundled.
+- Added schema-2 engine provenance, schema-1 migration without geometry changes,
+  diagnostic-evidence preservation and protected-junction edit safeguards.
+- Hardened portable archive bounds/path checks, clean-source provenance and
+  tracked-document packaging. Public binary distribution remains uncleared.
+- This is an experimental source release, not completed hydrologic validation,
+  independent operator productivity evidence or native Windows desktop acceptance.
+
 ## 0.2.2 — terrain display and draft tracing, 2026-10-16
 
 - Added RAS-inspired terrain, Topographic and Spectral elevation palettes, plus

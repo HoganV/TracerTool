@@ -30,7 +30,7 @@ from .tracing import TraceParams, default_params, trace, validate_segments
 from .project import new_feature, save_project, load_project, export_shapefile, export_geojson
 from .desktop_actions import DesktopActions
 from .preferences import normalize_preferences, display_kwargs
-from . import editing
+from . import editing, project
 
 
 STYLE = """
@@ -212,6 +212,12 @@ class MainWindow(DesktopActions, QMainWindow):
         self.break_mode.currentIndexChanged.connect(self.invalidate_preview)
         self.break_mode.hide()
         left.addWidget(self.break_mode)
+        self.stream_engine = QComboBox()
+        self.stream_engine.addItem("Stream engine: Legacy", "legacy")
+        self.stream_engine.addItem("Stream engine: Auto (experimental)", "stream_auto")
+        self.stream_engine.setToolTip("Auto is experimental and opt-in. It uses source-native terrain analysis, not the legacy numerical search controls. Review diagnostics; it never falls back to Legacy.")
+        self.stream_engine.currentIndexChanged.connect(self.change_stream_engine)
+        left.addWidget(self.stream_engine)
         self.instructions = label("Open terrain, then choose Stream line or Breakline. Scroll to zoom; drag to explore.", "message", True)
         left.addWidget(self.instructions)
         left.addSpacing(8)
@@ -265,7 +271,7 @@ class MainWindow(DesktopActions, QMainWindow):
             ("line_smoothing", "Line smoothing", 0, 50, 0, "Smoothing radius for assisted line geometry, in working cells. Range 0–50; default 0 (off). Higher values soften stair-steps but can round real bends. Manual lines and fixed connections remain exact; NoData stays impassable."),
         ]
         self.advanced_button = QToolButton()
-        self.advanced_button.setText("Advanced smoothing")
+        self.advanced_button.setText("Advanced · Legacy smoothing")
         self.advanced_button.setCheckable(True)
         self.advanced_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.advanced_button.setArrowType(Qt.ArrowType.RightArrow)
@@ -584,6 +590,13 @@ class MainWindow(DesktopActions, QMainWindow):
         self.delete_button.setEnabled(self.selected is not None and not busy and not has_draft)
         self.feature_list.setEnabled(not busy and not has_draft)
         self.break_mode.setEnabled(not busy and self._draft_kind is None)
+        auto = self.kind() == 'stream' and self.stream_engine.currentData() == 'stream_auto'
+        self.stream_engine.setVisible(self.canvas.mode == 'stream' or self._draft_kind == 'stream')
+        for name, widget in self.param_widgets.items():
+            widget.setEnabled(not auto or name in {'spacing', 'simplify'})
+        self.preset.setEnabled(not auto)
+        self.relax_guides.setEnabled(not auto)
+        self.advanced_button.setEnabled(not auto)
         self.accept_button.setText("Apply correction" if self.edit_target else "Accept line")
         self.clear_button.setText("Cancel edit" if self.edit_target else "Clear draft")
         if hasattr(self, "edit_buttons"):
@@ -668,6 +681,9 @@ class MainWindow(DesktopActions, QMainWindow):
         self._anchor_exact = {}
         self._fixed_anchor_indices = set()
         self.preferences = incoming_preferences
+        self.stream_engine.blockSignals(True)
+        self.stream_engine.setCurrentIndex(0)
+        self.stream_engine.blockSignals(False)
         self.sync_display_controls()
         self.history.clear()
         self.future.clear()
@@ -732,9 +748,12 @@ class MainWindow(DesktopActions, QMainWindow):
         t = self.terrain
         reference = {"crs_wkt": t.crs.to_wkt() if t.crs else None, "bounds": list(t.bounds), "original_width": t.metadata["original_width"], "original_height": t.metadata["original_height"], "original_resolution_xy": t.metadata["original_resolution_xy"], "source_sha256": t.metadata.get("source_sha256")} if t else None
         values = {"parameters": vars(self.params()).copy(), "style": self.view_style.currentText(), "azimuth": self.azimuth.value(), "z_factor": self.exaggeration.value(), "view": {"center": [center.x(), center.y()], "scale": self.canvas.transform().m11()}, "terrain_reference": reference, "preferences": copy.deepcopy(self.preferences)}
+        values['stream_engine'] = self.stream_engine.currentData()
         if self.anchors and t:
             values["draft"] = {"kind": self.kind(), "coordinate_space": "native", "anchors": [list(t.xy(*anchor)) for anchor in self.anchors], "parameters": values["parameters"], "edit_target": self.edit_target, "segment_range": list(self.segment_range) if self.segment_range else None}
             values['draft']['fixed_anchor_indices'] = sorted(self._fixed_anchor_indices)
+            values['draft']['engine'] = self.trace_engine()
+            values['draft']['engine_version'] = 1
         return values
 
     @staticmethod
@@ -744,6 +763,15 @@ class MainWindow(DesktopActions, QMainWindow):
             return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
         if not isinstance(settings, dict) or not isinstance(settings.get("parameters", {}), dict):
             raise ValueError("Project trace settings must be an object of numeric parameters.")
+        if settings.get('stream_engine', 'legacy') not in ('legacy', 'stream_auto'):
+            raise ValueError('Unsupported stream engine; no fallback is permitted.')
+        draft = settings.get('draft')
+        if draft is not None:
+            if not isinstance(draft, dict) or draft.get('engine', 'legacy') not in ('legacy', 'stream_auto'):
+                raise ValueError('Unsupported draft engine; no fallback is permitted.')
+            project.require_supported_engine(draft)
+            if draft.get('engine') == 'stream_auto' and draft.get('kind') != 'stream':
+                raise ValueError('Auto engine is supported only for stream drafts.')
         bounds = {"corridor": (1, math.inf), "smoothing": (0, 50), "line_smoothing": (0, 50), "terrain_weight": (0, 1000), "spacing": (.25, 2000), "simplify": (0, 200)}
         for key, value in settings.get("parameters", {}).items():
             if key == 'relax_anchors' and not isinstance(value, bool):
@@ -780,6 +808,7 @@ class MainWindow(DesktopActions, QMainWindow):
                     raise ValueError("Project terrain reference has an invalid coordinate system.") from exc
 
     def restore_settings(self, settings):
+        self.stream_engine.setCurrentIndex(self.stream_engine.findData(settings.get('stream_engine', 'legacy')))
         self.relax_guides.setChecked(settings.get('parameters', {}).get('relax_anchors', False))
         self.param_widgets['line_smoothing'].setValue(settings.get('parameters', {}).get('line_smoothing', 0))
         for k, value in settings.get("parameters", {}).items():
@@ -799,6 +828,7 @@ class MainWindow(DesktopActions, QMainWindow):
             self.canvas.centerOn(QPointF(*view["center"]))
         draft = settings.get("draft")
         if draft and draft.get("anchors"):
+            self.stream_engine.setCurrentIndex(self.stream_engine.findData(draft.get('engine', 'legacy')) if draft['kind'] == 'stream' else self.stream_engine.currentIndex())
             self._activate_draft_kind(draft["kind"])
             self.anchors = [tuple(self.terrain.rc(*p)) for p in draft["anchors"]]
             self._anchor_exact = {i: list(p) for i, p in enumerate(draft["anchors"])}
@@ -920,6 +950,12 @@ class MainWindow(DesktopActions, QMainWindow):
     def params(self):
         return TraceParams(**{k: w.value() for k, w in self.param_widgets.items()}, relax_anchors=self.relax_guides.isChecked())
 
+    def trace_engine(self):
+        return self.stream_engine.currentData() if self.kind() == 'stream' else 'legacy'
+
+    def change_stream_engine(self, *_):
+        self.invalidate_preview()
+
     def reset_parameters(self):
         for name, value in vars(default_params(self.terrain, self.kind()) if self.terrain else TraceParams()).items():
             if name in self.param_widgets:
@@ -932,6 +968,9 @@ class MainWindow(DesktopActions, QMainWindow):
         if not self.terrain:
             return
         t = self.terrain
+        if self.trace_engine() == 'stream_auto':
+            self.units_label.setText(f"Auto (experimental): source-native analysis; effective resolution is reported with the preview.\nOutput spacing: {self.params().spacing * t.resolution:g} {t.units}. Legacy search, attraction and smoothing controls are not Auto settings. Dense vertices do not add DEM accuracy.")
+            return
         radius = self.param_widgets['corridor'].value() * t.resolution
         spacing = self.param_widgets['spacing'].value() * t.resolution
         self.units_label.setText(f"1 working cell = {t.resolution:g} {t.units}.\nSearch radius: {radius:g} {t.units}\nTarget spacing: {spacing:g} {t.units}\nStart with 12 cells search / 3 cells spacing. Widen search only if the guide misses the feature; keep spacing small to retain editable detail.")
@@ -975,6 +1014,7 @@ class MainWindow(DesktopActions, QMainWindow):
             self.remove_anchor(self.selected_anchor)
 
     def invalidate_preview(self, *_):
+        self._draft_revision += 1
         self.preview = None
         if hasattr(self, "canvas"):
             self.draw_overlays()
@@ -1085,15 +1125,52 @@ class MainWindow(DesktopActions, QMainWindow):
             return
         self._preview_pending = False
         self.preview_debounce.stop()
+        try:
+            project.require_supported_engine({'engine': self.trace_engine(), 'engine_version': 1})
+            if self.edit_target:
+                target = next((f for f in self.features if f['id'] == self.edit_target), None)
+                if target is None:
+                    raise ValueError('The line being edited no longer exists.')
+                project.require_supported_engine(target)
+        except ValueError as exc:
+            self.error(str(exc))
+            return
         anchors, params, kind = list(self.anchors), self.params(), self.kind()
         cells = [(math.floor(r + .5), math.floor(c + .5)) for r, c in anchors]
-        if kind != 'manual' and any(a == b for a, b in zip(cells, cells[1:])):
+        if kind != 'manual' and self.trace_engine() == 'legacy' and any(a == b for a, b in zip(cells, cells[1:])):
             self.error('Adjacent guide points occupy the same working cell. Move one farther apart or use Manual line for subcell geometry.')
             return
         fixed = sorted(self._fixed_anchor_indices)
-        self.start_job('Following terrain inside the guide corridor…', lambda: trace(self.terrain, anchors, kind, params, cancel=self._cancel_event.is_set, fixed_anchor_indices=fixed), self.install_preview)
+        terrain, engine = self.terrain, self.trace_engine()
+        revision = self._draft_revision
+        exact = copy.deepcopy(self._anchor_exact)
+        def install(result):
+            if (self.terrain is terrain and self._draft_revision == revision
+                    and self.anchors == anchors and self._anchor_exact == exact
+                    and self.trace_engine() == engine and self.params() == params
+                    and sorted(self._fixed_anchor_indices) == fixed):
+                self.install_preview(result)
+        def calculate():
+            if engine == 'stream_auto':
+                terrain.check_source_unchanged()
+                from .stream_auto import trace_auto
+                return trace_auto(terrain, anchors, params, cancel=self._cancel_event.is_set, fixed_anchor_indices=fixed)
+            if engine != 'legacy':
+                raise ValueError(f"Unsupported trace engine: {engine!r}. No fallback was attempted.")
+            return trace(terrain, anchors, kind, params, cancel=self._cancel_event.is_set, fixed_anchor_indices=fixed)
+        self.start_job('Analysing source terrain · Auto (experimental)…' if engine == 'stream_auto' else 'Following terrain inside the guide corridor…', calculate, install)
+
+    def check_preview_source(self, result):
+        """Validate solver identity before any preview or accepted-state changes."""
+        if result.metrics.get('engine') == 'stream_auto':
+            self.terrain.check_source_unchanged()
+            from .analysis_grid import check_source_identity
+            identity = result.metrics.get('effective_config', {}).get('source_identity')
+            if identity is not None:
+                check_source_identity(identity)
 
     def install_preview(self, result):
+        self.check_preview_source(result)
         # Preserve exact snapped guide coordinates, including subcell endpoints
         # from previous vector work. The routing grid itself uses cell centers.
         last_match = -1
@@ -1102,11 +1179,23 @@ class MainWindow(DesktopActions, QMainWindow):
                 break
             if anchor_index >= len(self.anchors):
                 continue
-            if self.relax_guides.isChecked() and anchor_index not in self._fixed_anchor_indices:
+            if (result.metrics.get('engine') == 'stream_auto' or self.relax_guides.isChecked()) and anchor_index not in self._fixed_anchor_indices:
                 continue
             r, c = self.anchors[anchor_index]
             cell = (math.floor(r + .5), math.floor(c + .5))
             candidates = [i for i, rc in enumerate(result.cells) if i > last_match and math.dist(rc, cell) < 1e-7]
+            if anchor_index in self._fixed_anchor_indices:
+                if anchor_index == 0:
+                    candidates = [0]
+                elif anchor_index == len(self.anchors) - 1:
+                    candidates = [len(result.coordinates) - 1]
+                elif not candidates:
+                    # Auto cells are fractional working coordinates converted
+                    # from native analysis; a rounded cell match is not required.
+                    candidates = [i for i, coordinate in enumerate(result.coordinates)
+                                  if i > last_match and math.dist(coordinate[:2], xy) < 1e-7]
+                    if not candidates:
+                        raise ValueError('The trace omitted a protected connection. Adjust guides and preview again; no geometry was accepted.')
             if candidates:
                 i = candidates[0]
                 last_match = i
@@ -1114,7 +1203,10 @@ class MainWindow(DesktopActions, QMainWindow):
                 if z is None:
                     raise ValueError('A snapped guide point touches source NoData.')
                 result.coordinates[i] = [*xy, z]
-        validate_segments(self.terrain, result.coordinates)
+        if result.metrics.get('engine') == 'stream_auto':
+            self.validate_source_segments(result.coordinates)
+        else:
+            validate_segments(self.terrain, result.coordinates)
         arr = np.asarray(result.coordinates)
         dz = np.diff(arr[:, 2])
         gain = float(np.maximum(dz, 0).sum())
@@ -1123,14 +1215,15 @@ class MainWindow(DesktopActions, QMainWindow):
         pixels = np.asarray([self.terrain.rc(*point[:2]) for point in arr])
         pixel_edges = np.linalg.norm(np.diff(pixels, axis=0), axis=1)
         result.metrics.update(spacing_min=float(edges.min()), spacing_median=float(np.median(edges)), spacing_max=float(edges.max()), spacing_min_pixels=float(pixel_edges.min()), spacing_median_pixels=float(np.median(pixel_edges)), spacing_max_pixels=float(pixel_edges.max()), spacing_exception_count=int(np.count_nonzero(pixel_edges < self.params().spacing * .625)))
-        result.warnings = [w for w in result.warnings if not w.startswith('This line contains uphill')]
-        if self.kind() == 'stream' and gain > max(.001, float(np.ptp(arr[:, 2])) * .02):
+        if result.metrics.get('engine') != 'stream_auto':
+            result.warnings = [w for w in result.warnings if not w.startswith('This line contains uphill')]
+        if self.kind() == 'stream' and result.metrics.get('engine') != 'stream_auto' and gain > max(.001, float(np.ptp(arr[:, 2])) * .02):
             result.warnings.append('This line contains uphill segments. Check direction, pits, bridges, and anchor placement; no depression filling is applied.')
         result.anchors = [list(self.terrain.xy(*a)) for a in self.anchors]
         result.fixed_anchor_indices = sorted(self._fixed_anchor_indices)
         self.preview = result
         self.draw_overlays()
-        self.show_details(result.coordinates, result.warnings)
+        self.show_details(result.coordinates, result.warnings, result.metrics)
         self.statusBar().showMessage('Preview ready · inspect the line, then Apply/Accept or Enter')
 
     def snapshot(self):
@@ -1138,8 +1231,33 @@ class MainWindow(DesktopActions, QMainWindow):
         self.history = self.history[-int(self.preferences['editing']['history_limit']):]
         self.future.clear()
 
+    def validate_source_segments(self, coordinates):
+        """Recheck native supercover after restoring exact vector connections."""
+        import rasterio
+        from .tracing import _segment_cells
+        if len(coordinates) < 2:
+            raise ValueError('A line needs at least two vertices.')
+        for point in coordinates:
+            if len(point) != 3 or not all(math.isfinite(v) for v in point):
+                raise ValueError('Line coordinates must contain finite XYZ values.')
+        with rasterio.open(self.terrain.path) as source:
+            transform = source.transform
+        pixels = [((p[1] - transform.f) / transform.e - .5,
+                   (p[0] - transform.c) / transform.a - .5) for p in coordinates]
+        for a, b in zip(pixels, pixels[1:]):
+            cells = _segment_cells(a, b)
+            points = [(transform.c + (col + .5) * transform.a,
+                       transform.f + (row + .5) * transform.e) for row, col in cells]
+            if any(z is None for z in self.terrain.sample_many(points)):
+                raise ValueError('A trace segment crosses source NoData. Adjust guides; no geometry was accepted.')
+
     def accept_preview(self):
         if self.busy or self.preview is None:
+            return
+        try:
+            self.check_preview_source(self.preview)
+        except ValueError as exc:
+            self.error(str(exc))
             return
         kind = self.kind()
         if self.edit_target:
@@ -1148,6 +1266,7 @@ class MainWindow(DesktopActions, QMainWindow):
                 self.error('The line being edited no longer exists. Cancel the draft and select another line.')
                 return
             try:
+                project.require_supported_engine(original)
                 if self.segment_range:
                     feature = editing.replace_segment(self.terrain, original, *self.segment_range, self.preview, self.params())
                 else:
@@ -1155,6 +1274,15 @@ class MainWindow(DesktopActions, QMainWindow):
                     from dataclasses import asdict
                     feature['parameters'] = asdict(self.params())
                     feature['anchors'] = copy.deepcopy(self.preview.anchors)
+                    feature['metrics'] = copy.deepcopy(self.preview.metrics)
+                    feature['warnings'] = copy.deepcopy(self.preview.warnings)
+                    feature['engine'] = self.preview.metrics.get('engine', 'legacy')
+                    feature['engine_version'] = self.preview.metrics.get('engine_version', 1)
+                    feature['engine_evidence'] = {'engine': feature['engine'],
+                        'engine_version': feature['engine_version'], 'stale': False,
+                        'metrics': copy.deepcopy(self.preview.metrics),
+                        'warnings': copy.deepcopy(self.preview.warnings)}
+                editing.validate_shared_junction_edit(original, [feature], self.features)
                 self.snapshot()
                 self.features[self.features.index(original)] = feature
             except ValueError as exc:
@@ -1234,6 +1362,11 @@ class MainWindow(DesktopActions, QMainWindow):
     def delete_feature(self):
         if self.busy or self.anchors or self.edit_target or self.segment_first is not None or self.selected is None or self.feature_list.state() == QAbstractItemView.State.EditingState:
             return
+        try:
+            editing.validate_shared_junction_edit(self.current_feature(), [], self.features)
+        except ValueError as exc:
+            self.error(str(exc))
+            return
         self.snapshot()
         self.features = [f for f in self.features if f["id"] != self.selected]
         self.selected = None
@@ -1293,7 +1426,7 @@ class MainWindow(DesktopActions, QMainWindow):
         arr = np.asarray(coords)
         return {"length": float(np.linalg.norm(np.diff(arr[:, :2], axis=0), axis=1).sum()), "vertices": len(coords), "elevation_change": float(arr[-1, 2] - arr[0, 2]), "uphill_total": float(np.maximum(np.diff(arr[:, 2]), 0).sum())}
 
-    def show_details(self, coords, warnings):
+    def show_details(self, coords, warnings, metrics=None):
         self.profile.set_coordinates(coords)
         m = self.basic_metrics(coords)
         z_units = self.terrain.metadata.get('vertical_units', 'source Z units')
@@ -1301,14 +1434,25 @@ class MainWindow(DesktopActions, QMainWindow):
         spacing = f"Spacing: {np.median(distances):.1f} median ({distances.min():.1f}–{distances.max():.1f} {self.terrain.units})"
         self.metrics_label.setText(f"{m['length']:,.1f} {self.terrain.units}  ·  {m['vertices']} vertices\n{spacing}\nΔ elevation {m['elevation_change']:+.2f} {z_units}\nProfile: distance in {self.terrain.units}; elevation in {z_units}")
         self.qa_label.setText("\n\n".join(warnings) if warnings else "Review against the hillshade. Strong terrain alignment does not establish a surveyed breakline.")
+        metrics = metrics or {}
+        if metrics.get('engine') == 'stream_auto':
+            self.metrics_label.setText(self.metrics_label.text() + f"\nAuto (experimental) · {metrics.get('status', 'unknown')}\nAnalysis resolution: {metrics.get('analysis_resolution', 'unknown')} {self.terrain.units}")
+            diagnostics = []
+            for diagnostic in metrics.get('diagnostics', []):
+                text = f"{diagnostic.get('code', 'diagnostic')}: {diagnostic.get('message', '')}"
+                location = diagnostic.get('location')
+                if location:
+                    text += f" · X {location[0]:g}, Y {location[1]:g}"
+                diagnostics.append(text)
+            self.qa_label.setText('\n\n'.join([self.qa_label.text(), *diagnostics]))
 
     def show_selected_details(self):
         if self.preview:
-            self.show_details(self.preview.coordinates, self.preview.warnings)
+            self.show_details(self.preview.coordinates, self.preview.warnings, self.preview.metrics)
             return
         feature = next((f for f in self.features if f["id"] == self.selected), None)
         if feature:
-            self.show_details(feature["coordinates"], feature.get("warnings", []))
+            self.show_details(feature["coordinates"], feature.get("warnings", []), feature.get('metrics', {}))
         else:
             self.profile.set_coordinates([])
             self.metrics_label.setText("Select or preview a line.")
@@ -1423,11 +1567,46 @@ def smoke_test(app):
         window.install_terrain(window.load_terrain_image(path))
         result = trace(window.terrain, [(5, 32), (58, 32)], "stream", TraceParams())
         window.features = [new_feature("Smoke stream", "stream", result, TraceParams())]
-        window.refresh_features()
-        project = Path(folder) / "smoke.tracer.json"
-        save_project(project, path, window.features, window.settings())
-        assert len(load_project(project)["features"]) == 1
-        export_shapefile(Path(folder) / "smoke.shp", window.features, window.terrain.crs)
+        # Import through the production lazy boundary so frozen builds exercise
+        # the actual Auto engine and its native analysis dependencies as well.
+        from .stream_auto import trace_auto
+        auto = trace_auto(window.terrain, [(5, 32), (58, 32)], TraceParams(),
+                          fixed_anchor_indices=[0, 1])
+        assert auto.metrics['engine'] == 'stream_auto'
+        assert auto.metrics['engine_version'] == 1
+        window.set_tool('stream')
+        window.stream_engine.setCurrentIndex(window.stream_engine.findData('stream_auto'))
+        window.anchors = [(5, 32), (58, 32)]
+        window._fixed_anchor_indices = {0, 1}
+        window._anchor_exact = {i: list(window.terrain.xy(*p)) for i, p in enumerate(window.anchors)}
+        window.install_preview(auto)
+        window.accept_preview()
+        assert len(window.features) == 2
+        assert auto.coordinates[0][:2] == list(window.terrain.xy(5, 32))
+        assert auto.coordinates[-1][:2] == list(window.terrain.xy(58, 32))
+        assert [p[2] for p in auto.coordinates] == window.terrain.sample_many([p[:2] for p in auto.coordinates])
+        project_path = Path(folder) / "smoke.tracer.json"
+        save_project(project_path, path, window.features, window.settings())
+        assert json.loads(project_path.read_text(encoding='utf-8'))['version'] == 2
+        restored = load_project(project_path)
+        assert restored['features'] == window.features
+        assert restored['settings']['stream_engine'] == 'stream_auto'
+        shape_path = Path(folder) / "smoke.shp"
+        export_shapefile(shape_path, restored['features'], window.terrain.crs)
+        import shapefile
+        with shapefile.Reader(str(shape_path)) as reader:
+            shapes = reader.shapes()
+            assert len(shapes) == 2
+            for shape, feature in zip(shapes, window.features):
+                assert [list(p) for p in shape.points] == [p[:2] for p in feature['coordinates']]
+                assert list(shape.z) == [p[2] for p in feature['coordinates']]
+        geojson_path = Path(folder) / 'smoke.geojson'
+        export_geojson(geojson_path, restored['features'], window.terrain.crs)
+        exported = json.loads(geojson_path.read_text(encoding='utf-8'))
+        assert exported['features'][1]['geometry']['coordinates'] == auto.coordinates
+        with rasterio.open(path) as source:
+            np.testing.assert_array_equal(source.read(1), data)
+        window.dirty = False
         window.show()
         app.processEvents()
         assert not window.grab().isNull()

@@ -1,5 +1,35 @@
 # TracerTool user guide
 
+## Experimental Auto streams (0.3)
+
+The stream engine selector offers **Legacy guided** and **Auto (experimental)**.
+Legacy remains the default while independent real-terrain qualification is open.
+Auto reads a bounded source-native analysis window rather than tracing the display
+overview. It combines directional channel evidence, outlet-connected flat routing
+and conservatively bounded small-depression conditioning on a separate analysis
+surface. It is not a hydrologically validated network delineator. The treatment
+is an explicit heuristic (at most nine cells and twice a source-Z roughness
+estimate), not proof a small depression is artificial; retained basins refuse.
+
+Select Stream, opt into Auto, place upstream/downstream guides, preview, review
+the diagnostics and source profile, then accept. Flat/no-evidence terrain or an
+oversized analysis domain can return an actionable refusal instead of a line.
+Ambiguous candidates remain reviewable proposals, not assured drainage paths.
+The original source and exported Z are unchanged. Do not treat a warning about
+uphill segments, sinks or clipped upstream context as proof of a real culvert.
+
+Auto search does not use legacy corridor, attraction or smoothing tuning. Output
+detail controls are separate from analysis. Source-native analysis still has
+explicit memory/domain limits; it does not make a coarse DEM more accurate.
+Whole-network extraction, field validation and material depression breaching
+are not supplied by selecting Auto. See [STREAM_DECISIONS.md](STREAM_DECISIONS.md)
+for scope and remaining work.
+
+Projects now save schema 2 with engine/version provenance. Schema-1 coordinates
+remain unchanged on open; old lines retain legacy identity. Unknown future engine
+records can remain readable, but must not silently execute a different retracer.
+Edits retain original engine evidence marked stale while geometry QA is refreshed.
+
 ## First line
 
 1. Open a terrain TIFF with **Open terrain**. The map starts with elevation

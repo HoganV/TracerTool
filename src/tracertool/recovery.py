@@ -20,7 +20,8 @@ class RecoveryStore:
 
     Calls on the same instance are serialized. Missing source rasters are kept
     in recovery records, so a UI can offer relinking before installing a project.
-    A snapshot is an ordinary v1 project with an additional ``recovery`` object.
+    A snapshot uses the current project schema with an additional ``recovery``
+    object; schema-1 snapshots migrate through the ordinary project reader.
     """
 
     def __init__(self, directory):

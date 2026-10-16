@@ -1,0 +1,203 @@
+{
+  "schema_version": 1,
+  "id": "massachusetts-cartographic-check-v1",
+  "split": "validation",
+  "catchment_group": "MA-Wachusett-pilot",
+  "label_role": "independent-source cartographic check; unreviewed historical/mixed lineage",
+  "label_target": "MassDEP mapped stream centerline; not bed thalweg",
+  "independent_review": false,
+  "crs": "EPSG:26919",
+  "assets": {
+    "raster": {
+      "file": "terrain-crop.tif",
+      "sha256": "6c47cde51297411a3186af597f12aab4dfbd2f197804db61e9c52cb1584d1ede"
+    },
+    "reference": {
+      "file": "reference.esri.json",
+      "sha256": "baf49287e1fbd652e09cbe0a66998b3b96bc7c1e66717dbc1846535dc9bc151d"
+    }
+  },
+  "cases": [
+    {
+      "id": "ma-218445-0",
+      "feature_id": 218445,
+      "path_index": 0,
+      "guide_indices": [
+        0,
+        -1
+      ]
+    },
+    {
+      "id": "ma-219209-0",
+      "feature_id": 219209,
+      "path_index": 0,
+      "guide_indices": [
+        0,
+        -1
+      ]
+    },
+    {
+      "id": "ma-221442-0",
+      "feature_id": 221442,
+      "path_index": 0,
+      "guide_indices": [
+        0,
+        -1
+      ]
+    },
+    {
+      "id": "ma-225642-0",
+      "feature_id": 225642,
+      "path_index": 0,
+      "guide_indices": [
+        0,
+        -1
+      ]
+    },
+    {
+      "id": "ma-226018-0",
+      "feature_id": 226018,
+      "path_index": 0,
+      "guide_indices": [
+        0,
+        -1
+      ]
+    },
+    {
+      "id": "ma-226019-0",
+      "feature_id": 226019,
+      "path_index": 0,
+      "guide_indices": [
+        0,
+        -1
+      ]
+    },
+    {
+      "id": "ma-234766-0",
+      "feature_id": 234766,
+      "path_index": 0,
+      "guide_indices": [
+        0,
+        -1
+      ]
+    },
+    {
+      "id": "ma-235838-0",
+      "feature_id": 235838,
+      "path_index": 0,
+      "guide_indices": [
+        0,
+        -1
+      ]
+    },
+    {
+      "id": "ma-236378-0",
+      "feature_id": 236378,
+      "path_index": 0,
+      "guide_indices": [
+        0,
+        -1
+      ]
+    },
+    {
+      "id": "ma-236383-0",
+      "feature_id": 236383,
+      "path_index": 0,
+      "guide_indices": [
+        0,
+        -1
+      ]
+    },
+    {
+      "id": "ma-238499-0",
+      "feature_id": 238499,
+      "path_index": 0,
+      "guide_indices": [
+        0,
+        -1
+      ]
+    },
+    {
+      "id": "ma-238500-0",
+      "feature_id": 238500,
+      "path_index": 0,
+      "guide_indices": [
+        0,
+        -1
+      ]
+    },
+    {
+      "id": "ma-239273-0",
+      "feature_id": 239273,
+      "path_index": 0,
+      "guide_indices": [
+        0,
+        -1
+      ]
+    },
+    {
+      "id": "ma-239275-0",
+      "feature_id": 239275,
+      "path_index": 0,
+      "guide_indices": [
+        0,
+        -1
+      ]
+    },
+    {
+      "id": "ma-239276-0",
+      "feature_id": 239276,
+      "path_index": 0,
+      "guide_indices": [
+        0,
+        -1
+      ]
+    },
+    {
+      "id": "ma-239751-0",
+      "feature_id": 239751,
+      "path_index": 0,
+      "guide_indices": [
+        0,
+        -1
+      ]
+    },
+    {
+      "id": "ma-240256-0",
+      "feature_id": 240256,
+      "path_index": 0,
+      "guide_indices": [
+        0,
+        -1
+      ]
+    },
+    {
+      "id": "ma-255852-0",
+      "feature_id": 255852,
+      "path_index": 0,
+      "guide_indices": [
+        0,
+        -1
+      ]
+    }
+  ],
+  "lineage": {
+    "vector": "https://services1.arcgis.com/hGdibHYSPO59RG1h/arcgis/rest/services/1_25_000_USGS_MassDEP_Hydrography/FeatureServer/0/query?f=json&where=ARC_CODE+IN+%284%2C5%29&geometry=-71.85%2C42.395%2C-71.84%2C42.405&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=%2A&returnGeometry=true&outSR=26986&resultRecordCount=2000",
+    "raster": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/1m/Projects/MA_CentralEastern_2021_B21/TIFF/USGS_1M_19_x26y470_MA_CentralEastern_2021_B21.tif",
+    "vector_native": "https://services1.arcgis.com/hGdibHYSPO59RG1h/arcgis/rest/services/1_25_000_USGS_MassDEP_Hydrography/FeatureServer/0/query?f=json&where=ARC_CODE+IN+%284%2C5%29&geometry=-71.85%2C42.395%2C-71.84%2C42.405&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=%2A&returnGeometry=true&outSR=26919&resultRecordCount=2000",
+    "crop_bounds": [
+      265159.0,
+      4697000.0,
+      266609.0,
+      4699123.0
+    ],
+    "normalization": "Add lowercase objectid alias; geometry unchanged",
+    "raster_sha256": "c4b4464072da5e34d47b9000b5af48dab15ba5755719116e9ce70e1839b38ed6"
+  },
+  "license_urls": [
+    "https://www.mass.gov/info-details/massgis-data-massdep-hydrography-125000",
+    "https://www.usgs.gov/information-policies-and-instructions/copyrights-and-credits"
+  ],
+  "freeze": "All returned ARC_CODE 4/5 paths; frozen before solver output; no label review. This is exposed validation, not future blind acceptance.",
+  "reference_burned_into_dem": "Not established; separate older cartographic source versus 2021 lidar; no harness burning"
+}

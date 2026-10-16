@@ -6,15 +6,16 @@ anchors, review a terrain-guided path, edit the result, and export 3D shapefiles
 The application is independent of ArcGIS and uses Python, PySide6, Rasterio,
 SciPy and scikit-image. Original code and documentation are MIT licensed.
 
-**Status: v0.2.2 desktop source revision.** The workflow covers terrain
-viewing, assisted tracing, hand corrections, local retracing, recovery, project
-saves and GIS export. The initial 0.2.2 source snapshot passed hosted Windows
-and Linux tests; the subsequent endpoint correction passed 457
-local Linux tests and real desktop inspection. Results are recorded by source
-snapshot. Portable/Wine checks from 0.2.0 remain historical evidence; no 0.2.2
-portable package or interactive Windows acceptance is claimed. See the
-[validation record](docs/VALIDATION.md). Independent terrain accuracy,
-target-GIS handoff and hydrologic validation remain outstanding.
+**Status: v0.3.0 experimental Auto stream source prerelease.** Stream mode adds
+an explicit opt-in native-resolution Auto engine with drainage/terrain evidence
+and uncertainty diagnostics. Legacy remains the new-draft default; the full
+low-tuning overhaul and independent promotion gates are not yet complete.
+Projects save schema 2 and load schema 1 without moving saved coordinates.
+See the [implementation decisions](docs/STREAM_DECISIONS.md),
+[user guide](docs/USER_GUIDE.md) and [validation record](docs/VALIDATION.md).
+Independent terrain accuracy, operator productivity, target-GIS handoff and
+hydrologic validation remain outstanding. Historical portable evidence does not
+establish a current binary distribution or interactive Windows acceptance.
 
 **AI development disclosure:** the initial code, tests and documentation were
 substantially generated and revised with OpenAI Codex under human direction.

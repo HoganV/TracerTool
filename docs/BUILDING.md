@@ -2,6 +2,13 @@
 
 ## Source checkout
 
+Python 3.11 selects the verified PySide6/Shiboken 6.10.3 family. With the 6.12.0
+family, the 0.3 candidate completed all tests but crashed during interpreter
+finalization on hosted and locally reproduced Linux Python 3.11.17. The targeted
+dependency marker avoids that observed combination; it does not suppress exit
+errors or drop 3.11 support. Python 3.12+ retains the declared normal range and
+Windows builds retain their platform constraints.
+
 The package minimum is Python 3.11. The CI matrix covers Python 3.11/3.12 on
 Linux and 3.13/3.14 on Windows; see [recorded results](VALIDATION.md). This is
 not a claim of compatibility with every newer Python release. The historical

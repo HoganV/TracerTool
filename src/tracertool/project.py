@@ -26,7 +26,7 @@ from . import __version__
 
 
 PROJECT_FORMAT = "tracertool-project"
-PROJECT_VERSION = 1
+PROJECT_VERSION = 2
 _KINDS = {"ridge", "stream", "slope_break", "manual"}
 _PARAMETERS = ("corridor", "smoothing", "terrain_weight", "spacing", "simplify")
 _OPTIONAL_PARAMETERS = ("line_smoothing",)
@@ -100,6 +100,73 @@ def _validate_parameters(parameters: Any, label: str) -> None:
         raise ValueError(f"{label} parameter relax_anchors must be true or false.")
 
 
+def _validate_engine(record: dict, label: str) -> None:
+    if "engine" in record and (not isinstance(record["engine"], str) or
+                               not record["engine"].strip() or "\x00" in record["engine"]):
+        raise ValueError(f"{label} engine must be a nonempty text identifier.")
+    if "engine_version" in record and (type(record["engine_version"]) is not int or record["engine_version"] < 1):
+        raise ValueError(f"{label} engine_version must be a positive integer.")
+
+
+def validate_engine_metadata(feature: dict) -> None:
+    """Validate additive evidence types and a single consistent engine identity.
+
+    Missing historical identity means legacy/version 1. Unknown but consistent
+    identities remain readable; require_supported_engine gates execution.
+    """
+    _validate_engine(feature, 'Line')
+    identity = (feature.get('engine', 'legacy'), feature.get('engine_version', 1))
+
+    def record(value, label):
+        if not isinstance(value, dict):
+            raise ValueError(f'{label} must be an object.')
+        _validate_engine(value, label)
+        for key, expected in zip(('engine', 'engine_version'), identity):
+            if key in value and value[key] != expected:
+                raise ValueError(f'{label} {key} conflicts with the line engine identity.')
+        if 'diagnostics' in value:
+            diagnostics = value['diagnostics']
+            if not isinstance(diagnostics, list):
+                raise ValueError(f'{label} diagnostics must be a list of objects.')
+            for diagnostic in diagnostics:
+                if not isinstance(diagnostic, dict) or any(
+                        not isinstance(diagnostic.get(key), str) or not diagnostic[key].strip()
+                        for key in ('code', 'message')):
+                    raise ValueError(f'{label} diagnostic needs text code and message fields.')
+                if 'location' in diagnostic:
+                    _validate_anchors([diagnostic['location']], f'{label} diagnostic location', draft=True)
+        if 'effective_config' in value and not isinstance(value['effective_config'], dict):
+            raise ValueError(f'{label} effective_config must be an object.')
+
+    record(feature.get('metrics', {}), 'Line engine metrics')
+    if 'engine_evidence' in feature:
+        evidence = feature['engine_evidence']
+        record(evidence, 'Line engine_evidence')
+        if 'metrics' in evidence:
+            record(evidence['metrics'], 'Line engine_evidence metrics')
+        if 'warnings' in evidence and (not isinstance(evidence['warnings'], list) or
+                                      any(not isinstance(w, str) for w in evidence['warnings'])):
+            raise ValueError('Line engine_evidence warnings must be a list of text messages.')
+        if 'stale' in evidence and type(evidence['stale']) is not bool:
+            raise ValueError('Line engine_evidence stale must be true or false.')
+        if 'stale_reason' in evidence and not isinstance(evidence['stale_reason'], str):
+            raise ValueError('Line engine_evidence stale_reason must be text.')
+
+
+def require_supported_engine(record: dict) -> str:
+    """Preflight explicit retraces; unknown provenance is readable, never executable.
+
+    Call before dispatching a saved feature/draft to a solver. This helper does
+    not import or execute either engine and never silently substitutes legacy.
+    """
+    _validate_engine(record, "Trace")
+    engine = record.get("engine", "legacy")
+    version = record.get("engine_version", 1)
+    if (engine, version) not in {("legacy", 1), ("stream_auto", 1)}:
+        raise ValueError(f"Unsupported tracing engine {engine!r} version {version!r}; saved geometry can still be viewed and exported.")
+    return engine
+
+
 def _validate_anchors(anchors: Any, label: str, *, draft: bool = False) -> None:
     if not isinstance(anchors, list):
         raise ValueError(f"{label} anchors must be a list of native [x, y] points.")
@@ -119,15 +186,40 @@ def _validate_fixed_anchor_indices(indices: Any, anchors: list, label: str) -> N
         raise ValueError(f"{label} fixed_anchor_indices must be a list of distinct valid anchor indices.")
 
 
+def protected_junctions(feature: dict) -> list[list]:
+    """Return detached native XY locks, independent of disposable solver guides.
+
+    Legacy fixed guides confer protection only at exact geometry vertices.
+    Explicit persistent locks must remain vertices; no tolerance or snapping.
+    """
+    points = feature.get('protected_junctions', [])
+    _validate_anchors(points, 'protected junctions', draft=True)
+    anchors = feature.get('anchors', [])
+    _validate_anchors(anchors, 'Line')
+    indices = feature.get('fixed_anchor_indices', [])
+    _validate_fixed_anchor_indices(indices, anchors, 'Line')
+    vertices = {tuple(p[:2]) for p in feature['coordinates']}
+    if any(tuple(point) not in vertices for point in points):
+        raise ValueError('A protected junction must retain its exact native XY vertex.')
+    result = []
+    for point in points + [anchors[i] for i in indices if tuple(anchors[i]) in vertices]:
+        if point not in result:
+            result.append(list(point))
+    return result
+
+
 def _validate_settings(settings: Any) -> None:
     """Validate portable state; UI-specific display constraints live in the UI."""
     if not isinstance(settings, dict):
         raise ValueError("Project settings must be an object.")
     _json_value(settings, "Project settings")
+    if "stream_engine" in settings:
+        _validate_engine({"engine": settings["stream_engine"]}, "Stream settings")
     draft = settings.get("draft")
     if draft is not None:
         if not isinstance(draft, dict):
             raise ValueError("The saved draft must be an object.")
+        _validate_engine(draft, "Saved draft")
         if not isinstance(draft.get("kind"), str) or draft["kind"] not in _KINDS:
             raise ValueError("The saved draft needs a valid tracing kind.")
         if draft.get("coordinate_space", "native") != "native":
@@ -181,6 +273,7 @@ def _validate_features(features: Any, *, require_features: bool = False) -> None
         if missing:
             raise ValueError(f"{label} is missing required fields: {', '.join(sorted(missing))}.")
         _json_value(feature, label)
+        _validate_engine(feature, label)
         for field in ("id", "name"):
             if not isinstance(feature[field], str) or not feature[field].strip():
                 raise ValueError(f"{label} needs a nonempty {field}.")
@@ -204,10 +297,14 @@ def _validate_features(features: Any, *, require_features: bool = False) -> None
             unique_xy.add(point[:2])
         if len(unique_xy) < 2:
             raise ValueError(f"{label} has zero horizontal length; use two distinct map positions.")
+        if any(a[:2] == b[:2] for a, b in zip(coordinates, coordinates[1:])):
+            raise ValueError(f"{label} has a zero-length edge; use distinct neighboring map positions.")
         if not isinstance(feature["metrics"], dict):
             raise ValueError(f"{label} metrics must be an object.")
         if not isinstance(feature["warnings"], list) or any(not isinstance(w, str) for w in feature["warnings"]):
             raise ValueError(f"{label} warnings must be a list of text messages.")
+        validate_engine_metadata(feature)
+        protected_junctions(feature)
         _validate_parameters(feature["parameters"], label)
         if "anchors" in feature:
             _validate_anchors(feature["anchors"], label)
@@ -228,6 +325,8 @@ def new_feature(name: str, kind: str, result: Any, params: Any) -> dict:
             "kind": kind,
             "coordinates": [list(coordinate) for coordinate in result.coordinates],
             "metrics": result.metrics,
+            "engine": result.metrics.get("engine", "legacy"),
+            "engine_version": result.metrics.get("engine_version", 1),
             "warnings": result.warnings,
             "parameters": asdict(params),
             "visible": True,
@@ -365,12 +464,19 @@ def load_project(path: str | os.PathLike[str], *, allow_missing_terrain: bool = 
         raise ValueError(f"Could not read project {source.name}: {exc}") from exc
     if not isinstance(document, dict) or document.get("format") != PROJECT_FORMAT:
         raise ValueError("This is not a TracerTool project. Open a saved TracerTool project JSON file.")
-    if type(document.get("version")) is not int or document["version"] != PROJECT_VERSION:
-        raise ValueError(f"Unsupported project version {document.get('version')!r}; this application reads version {PROJECT_VERSION}.")
+    if type(document.get("version")) is not int or document["version"] not in {1, PROJECT_VERSION}:
+        raise ValueError(f"Unsupported project version {document.get('version')!r}; this application reads versions 1 and {PROJECT_VERSION}.")
     _json_value(document, "Project")
     _validate_features(document.get("features"))
     _validate_settings(document.get("settings"))
     _validate_draft_target(document["features"], document["settings"])
+    if document["version"] == 1:
+        for feature in document["features"]:
+            # Only untagged historical records are legacy. Preserve explicit
+            # future identifiers so migration cannot enable a legacy retrace.
+            feature.setdefault("engine", "legacy")
+            feature.setdefault("engine_version", 1)
+        document["version"] = PROJECT_VERSION
     terrain_value = document.get("terrain_path")
     if not isinstance(terrain_value, str) or not terrain_value.strip():
         raise ValueError("The project must specify its terrain_path.")

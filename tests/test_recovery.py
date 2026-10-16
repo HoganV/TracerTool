@@ -51,6 +51,65 @@ def test_recovery_write_probe_is_removed_after_success(tmp_path):
     assert list(directory.iterdir()) == []
 
 
+def test_recovery_preserves_junctions_and_rejects_bad_evidence_atomically(tmp_path, state):
+    terrain, features, settings = state
+    features[0]['protected_junctions'] = [[1, 2]]
+    store = RecoveryStore(tmp_path / 'sessions')
+    session = str(uuid4())
+    path = store.save(session, terrain, features, settings)
+    before = path.read_bytes()
+    terrain.unlink()
+    assert store.load(path)['features'] == features
+    malformed = copy.deepcopy(features)
+    malformed[0]['engine_evidence'] = []
+    with pytest.raises(ValueError, match='engine_evidence'):
+        store.save(session, terrain, malformed, settings)
+    assert path.read_bytes() == before
+    document = json.loads(before)
+    document['features'] = malformed
+    path.write_text(json.dumps(document))
+    with pytest.raises(ValueError, match='engine_evidence'):
+        store.load(path)
+    assert store.list_entries() == []
+
+
+def test_schema2_recovery_keeps_engine_diagnostics_and_draft_selection(tmp_path, state):
+    terrain, features, settings = state
+    features[0].update(engine='stream_auto', engine_version=1)
+    features[0]['metrics'].update(engine='stream_auto', engine_version=1, status='stale',
+                                  evidence_stale=True, diagnostics=[{'code': 'fork', 'message': 'Inspect fork'}])
+    features[0]['engine_evidence'] = {'engine': 'stream_auto', 'engine_version': 1, 'stale': True,
+                                    'metrics': {'status': 'ambiguous', 'effective_config': {'scale': 12}}}
+    settings['stream_engine'] = 'stream_auto'
+    settings['draft'].update(engine='stream_auto', engine_version=1)
+    before = copy.deepcopy((features, settings))
+    store = RecoveryStore(tmp_path / 'sessions')
+    path = store.save(str(uuid4()), terrain, features, settings)
+    assert json.loads(path.read_text())['version'] == 2
+    recovered = store.load(path)
+    assert (recovered['features'], recovered['settings']) == before
+    assert (features, settings) == before
+
+
+def test_schema1_recovery_migrates_engine_without_changing_xyz(tmp_path, state):
+    store = RecoveryStore(tmp_path / 'sessions')
+    path = store.save(str(uuid4()), *state)
+    document = json.loads(path.read_text())
+    document['version'] = 1
+    for line in document['features']:
+        line.pop('engine', None)
+        line.pop('engine_version', None)
+    path.write_text(json.dumps(document))
+    original = path.read_bytes()
+    recovered = store.load(path)
+    assert recovered['version'] == 2
+    assert recovered['features'][0]['engine'] == 'legacy'
+    assert recovered['features'][0]['engine_version'] == 1
+    assert recovered['features'][0]['coordinates'] == state[1][0]['coordinates']
+    assert path.read_bytes() == original
+    assert len(store.list_entries()) == 1
+
+
 def test_recovery_roundtrip_with_draft_and_missing_source(tmp_path, state):
     terrain, features, settings = state
     store = RecoveryStore(tmp_path / "sessions")
