@@ -20,13 +20,13 @@ from PySide6.QtWidgets import (
     QPushButton, QComboBox, QDoubleSpinBox, QFormLayout, QGroupBox, QFileDialog,
     QMessageBox, QListWidget, QListWidgetItem, QAbstractItemView, QSplitter,
     QProgressBar, QScrollArea, QFrame, QButtonGroup, QToolButton, QGridLayout,
-    QLineEdit, QDialog,
+    QLineEdit, QDialog, QCheckBox,
 )
 
 from . import __version__
 from .canvas import TerrainCanvas, ProfileWidget, COLORS
 from .terrain import Terrain
-from .tracing import TraceParams, trace, validate_segments
+from .tracing import TraceParams, default_params, trace, validate_segments
 from .project import new_feature, save_project, load_project, export_shapefile, export_geojson
 from .desktop_actions import DesktopActions
 from .preferences import normalize_preferences, display_kwargs
@@ -218,6 +218,16 @@ class MainWindow(DesktopActions, QMainWindow):
         left.addWidget(label("02   GUIDE THE TRACE", "section"))
         self.anchor_label = label("No anchors placed", "muted", True)
         left.addWidget(self.anchor_label)
+        guide_row = QHBoxLayout()
+        self.guide_edit_button = QPushButton("Edit guide points")
+        self.guide_edit_button.setCheckable(True)
+        self.guide_edit_button.setToolTip("Drag a numbered guide to move it. In this mode, click a guide edge to insert a point; select a point and press Delete to remove it. Ctrl+Z/Y undo and redo guide edits.")
+        self.guide_edit_button.toggled.connect(self.toggle_guide_edit)
+        self.guide_delete_button = QPushButton("Remove point")
+        self.guide_delete_button.clicked.connect(self.delete_anchor)
+        guide_row.addWidget(self.guide_edit_button)
+        guide_row.addWidget(self.guide_delete_button)
+        left.addLayout(guide_row)
         self.trace_button = QPushButton("Trace preview   ↵")
         self.trace_button.setObjectName("primary")
         self.trace_button.clicked.connect(self.trace_preview)
@@ -230,7 +240,7 @@ class MainWindow(DesktopActions, QMainWindow):
         row.addWidget(self.accept_button)
         row.addWidget(self.clear_button)
         left.addLayout(row)
-        params = QGroupBox("Trace settings · working pixels")
+        params = QGroupBox("Trace settings · working cells")
         form = QFormLayout(params)
         form.setSpacing(8)
         form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
@@ -240,26 +250,46 @@ class MainWindow(DesktopActions, QMainWindow):
         self.preset.addItems(["Balanced", "Levee / embankment", "Fine ditch / crest", "Broad channel", "Noisy terrain"])
         self.preset.activated.connect(self.apply_preset)
         form.addRow("Starting preset", self.preset)
+        self.relax_guides = QCheckBox("Let rough guide points follow terrain")
+        self.relax_guides.setChecked(True)
+        self.relax_guides.setToolTip("Move rough assisted guide points toward terrain features within the search radius, including the ends. Snapped connections and correction boundaries stay fixed. Uncheck to force the line through every guide; manual lines always follow exact guides.")
+        self.relax_guides.toggled.connect(self.invalidate_preview)
+        form.addRow(self.relax_guides)
         self.param_widgets = {}
         spec = [
-            ("corridor", "Search radius", 2, 250, 30, "Maximum distance from each anchor-to-anchor guide segment. Add anchors around bends."),
-            ("smoothing", "Terrain smoothing", 0, 50, 2, "Smoothing of DEM guidance. This reduces small terrain noise; source elevations are preserved."),
-            ("line_smoothing", "Line smoothing", 0, 50, 4, "Radius for smoothing assisted line geometry in working pixels. Increase to remove stair-steps; inspect real bends and anomalies. Zero preserves the unsmoothed route. Manual guides remain exact."),
-            ("terrain_weight", "Terrain attraction", 0, 40, 8, "Higher values prefer strong terrain features; lower values stay closer to a short path."),
-            ("spacing", "Target spacing", 0.5, 2000, 8, "Start with 5–10 working cells between vertices. Spacing follows arc length; anchors, meaningful bends, and NoData barriers may require closer points."),
-            ("simplify", "Bend tolerance", 0, 200, 1, "Allowed plan-view chord deviation in working pixels. Smaller values retain more detail. NoData remains impassable."),
+            ("corridor", "Search radius", 1, sys.float_info.max, 12, "Allowed search distance from the rough guide, in working cells. Increase it when the guide misses the channel or crest; a wider search can also reach neighboring features and take longer. Minimum 1; no application upper cap. Does not set vertex spacing or terrain feature scale."),
+            ("terrain_weight", "Terrain attraction", 0, 1000, 8, "How strongly the route favors terrain features over a shorter route. Higher values follow stronger channel/crest evidence; lower values stay more direct. Range 0–1000; 0 uses distance and guide proximity only. Start at 8."),
+            ("spacing", "Target spacing", .25, 2000, 3, "Desired distance between output vertices along the line, in working cells. Smaller values give more editable vertices; larger values give fewer. Range 0.25–2000. Independent of search radius; bends, fixed connections and NoData may require closer vertices. Dense vertices do not add DEM accuracy."),
+            ("simplify", "Bend tolerance", 0, 200, .75, "Allowed plan-view deviation when simplifying the route, in working cells. Range 0–200; 0 retains every raster bend. Smaller values preserve detail and may add vertices; larger values can cut real bends. Start at 0.75. Never permits crossing NoData."),
+            ("smoothing", "Terrain smoothing", 0, 50, 0, "Gaussian smoothing radius for terrain guidance, in working cells. Range 0–50; default 0 (off). Higher values suppress small features and can shift a channel or crest. Source elevations and exported Z stay unchanged."),
+            ("line_smoothing", "Line smoothing", 0, 50, 0, "Smoothing radius for assisted line geometry, in working cells. Range 0–50; default 0 (off). Higher values soften stair-steps but can round real bends. Manual lines and fixed connections remain exact; NoData stays impassable."),
         ]
+        self.advanced_button = QToolButton()
+        self.advanced_button.setText("Advanced smoothing")
+        self.advanced_button.setCheckable(True)
+        self.advanced_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.advanced_button.setArrowType(Qt.ArrowType.RightArrow)
+        self.advanced_panel = QWidget()
+        advanced_form = QFormLayout(self.advanced_panel)
+        advanced_form.setContentsMargins(0, 0, 0, 0)
+        advanced_form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
+        self.advanced_panel.hide()
+        self.advanced_button.toggled.connect(lambda checked: (self.advanced_panel.setVisible(checked), self.advanced_button.setArrowType(Qt.ArrowType.DownArrow if checked else Qt.ArrowType.RightArrow)))
         for name, title, low, high, default, tip in spec:
             spin = QDoubleSpinBox()
             spin.setRange(low, high)
             spin.setDecimals(2)
             spin.setSingleStep(0.5)
             spin.setValue(default)
-            spin.setFixedWidth(88)
-            spin.setToolTip(tip)
+            spin.setFixedWidth(110)
+            spin.setToolTip(f"<qt>{tip}</qt>")
             spin.valueChanged.connect(self.invalidate_preview)
-            form.addRow(title, spin)
+            title_label = QLabel(title)
+            title_label.setToolTip(f"<qt>{tip}</qt>")
+            (advanced_form if name in {'smoothing', 'line_smoothing'} else form).addRow(title_label, spin)
             self.param_widgets[name] = spin
+        form.addRow(self.advanced_button)
+        form.addRow(self.advanced_panel)
         left.addWidget(params)
         self.units_label = label("Distances will adapt to the terrain resolution.", "muted", True)
         left.addWidget(self.units_label)
@@ -306,6 +336,22 @@ class MainWindow(DesktopActions, QMainWindow):
         fit.clicked.connect(lambda: self.canvas.fit())
         controls.addWidget(fit)
         center_layout.addWidget(self.view_controls)
+        self.palette_controls = QWidget()
+        display_row = QHBoxLayout(self.palette_controls)
+        display_row.setContentsMargins(12, 0, 12, 8)
+        self.palette_choice = QComboBox()
+        for name, key in [("Earth", "earth"), ("RAS-inspired", "ras"), ("Topographic", "topographic"), ("Spectral", "spectral"), ("Viridis", "viridis"), ("Inferno", "inferno"), ("Grayscale", "gray"), ("Ocean", "ocean")]:
+            self.palette_choice.addItem(name, key)
+        self.range_choice = QComboBox()
+        for name, key in [("Terrain range · 1–99%", "percentile"), ("Terrain min–max", "minmax"), ("View min–max", "view"), ("Custom range", "custom")]:
+            self.range_choice.addItem(name, key)
+        self.range_choice.setToolTip("View min–max updates the elevation colors to the visible valid terrain as you pan and zoom. Custom limits are set in Settings → Display.")
+        self.palette_choice.activated.connect(self.change_display_controls)
+        self.range_choice.activated.connect(self.change_display_controls)
+        display_row.addWidget(self.palette_choice)
+        display_row.addWidget(self.range_choice)
+        display_row.addStretch()
+        center_layout.addWidget(self.palette_controls)
         self.canvas = TerrainCanvas()
         self.canvas.anchorAdded.connect(self.add_anchor)
         self.canvas.positionChanged.connect(self.show_position)
@@ -317,6 +363,9 @@ class MainWindow(DesktopActions, QMainWindow):
         self.canvas.vertexSelected.connect(self.choose_vertex)
         self.canvas.vertexInsertRequested.connect(self.insert_vertex)
         self.canvas.anchorMoved.connect(self.move_anchor)
+        self.canvas.anchorSelected.connect(self.choose_anchor)
+        self.canvas.anchorInsertRequested.connect(self.insert_anchor)
+        self.canvas.viewChanged.connect(self.schedule_view_stretch)
         self.canvas.segmentPointSelected.connect(self.pick_segment_boundary)
         self.canvas.deleteRequested.connect(self.delete_context)
         center_layout.addWidget(self.canvas, 1)
@@ -436,7 +485,7 @@ class MainWindow(DesktopActions, QMainWindow):
     def busy(self):
         return self.job is not None
 
-    def start_job(self, message, fn, callback):
+    def start_job(self, message, fn, callback, *, quiet=False):
         if self.busy:
             return
         self._callback = callback
@@ -445,11 +494,14 @@ class MainWindow(DesktopActions, QMainWindow):
         self.job.result.connect(self.job_result)
         self.job.failure.connect(self.job_error)
         self.job.finished.connect(self.job_finished)
-        self.progress.show()
         self.statusBar().showMessage(message)
-        self.cancel_button.show()
+        # A viewport color refresh must not resize its own viewport by adding
+        # progress widgets. That otherwise schedules another refresh forever.
+        if not quiet:
+            self.progress.show()
+            self.cancel_button.show()
         self.canvas.locked = True
-        for w in (self.left_panel, self.right_panel, self.view_controls):
+        for w in (self.left_panel, self.right_panel, self.view_controls, self.palette_controls):
             w.setEnabled(False)
         self.update_buttons()
         self.job.start()
@@ -462,11 +514,14 @@ class MainWindow(DesktopActions, QMainWindow):
             self.error(str(exc))
 
     def job_error(self, message):
+        self.sync_display_controls()
         if not self._cancel_event.is_set():
             self.error(message)
 
     def cancel_job(self):
         if self.busy:
+            self._preview_pending = False
+            self.preview_debounce.stop()
             self._cancel_event.set()
             self.statusBar().showMessage("Cancelling · waiting for the current calculation to return safely…")
 
@@ -478,7 +533,7 @@ class MainWindow(DesktopActions, QMainWindow):
         self.progress.hide()
         self.cancel_button.hide()
         self.canvas.locked = False
-        for w in (self.left_panel, self.right_panel, self.canvas, self.view_controls):
+        for w in (self.left_panel, self.right_panel, self.canvas, self.view_controls, self.palette_controls):
             w.setEnabled(True)
         self.update_buttons()
         if self._cancel_event.is_set():
@@ -487,6 +542,11 @@ class MainWindow(DesktopActions, QMainWindow):
             self.statusBar().showMessage("Display updated")
         if self._close_when_idle:
             QTimer.singleShot(0, self.close)
+        else:
+            if self._preview_pending:
+                self.preview_debounce.start(50)
+            if self._view_stretch_pending:
+                self.view_debounce.start(150)
 
     def error(self, message):
         self.statusBar().showMessage(message)
@@ -504,6 +564,8 @@ class MainWindow(DesktopActions, QMainWindow):
     def update_buttons(self):
         loaded = self.terrain is not None
         busy = self.busy
+        if not self.anchors and self.guide_edit_button.isChecked():
+            self.guide_edit_button.setChecked(False)
         self.open_button.setEnabled(not busy)
         self.project_button.setEnabled(not busy)
         self.save_button.setEnabled(loaded and not busy)
@@ -514,8 +576,11 @@ class MainWindow(DesktopActions, QMainWindow):
         self.clear_button.setEnabled(bool(self.anchors or self.edit_target or self.segment_first is not None) and not busy)
         self.delete_button.setEnabled(self.selected is not None and not busy)
         has_draft = bool(self.anchors or self.edit_target or self.segment_first is not None)
-        self.undo_button.setEnabled(bool(self.history) and not busy and not has_draft)
-        self.redo_button.setEnabled(bool(self.future) and not busy and not has_draft)
+        editing_draft = has_draft or bool(self.draft_history or self.draft_future)
+        self.undo_button.setEnabled(bool(self.draft_history if editing_draft else self.history) and not busy)
+        self.redo_button.setEnabled(bool(self.draft_future if editing_draft else self.future) and not busy)
+        self.guide_edit_button.setEnabled(bool(self.anchors) and not busy)
+        self.guide_delete_button.setEnabled(self.selected_anchor is not None and bool(self.anchors) and not busy)
         self.delete_button.setEnabled(self.selected is not None and not busy and not has_draft)
         self.feature_list.setEnabled(not busy and not has_draft)
         self.break_mode.setEnabled(not busy and self._draft_kind is None)
@@ -601,7 +666,9 @@ class MainWindow(DesktopActions, QMainWindow):
         self.segment_first = None
         self._draft_kind = None
         self._anchor_exact = {}
+        self._fixed_anchor_indices = set()
         self.preferences = incoming_preferences
+        self.sync_display_controls()
         self.history.clear()
         self.future.clear()
         self.view_style.blockSignals(True)
@@ -615,7 +682,7 @@ class MainWindow(DesktopActions, QMainWindow):
         finite = t.data[t.valid]
         self.source_detail.setText(f"{t.width:,} × {t.height:,} working cells\n{t.resolution:g} {t.units} / cell\n{t.crs.to_string() if t.crs else 'No coordinate system'}\nElevation {np.min(finite):,.2f} to {np.max(finite):,.2f}\nZ units: {t.metadata.get('vertical_units', t.metadata.get('band_units', 'source units'))}")
         self.source_detail.setToolTip(json.dumps(t.metadata, indent=2, default=str))
-        self.units_label.setText(f"1 working pixel = {t.resolution:g} {t.units}.\nTarget spacing: {self.param_widgets['spacing'].value() * t.resolution:g} {t.units}; start at 5–10 cells.")
+        self.reset_parameters()
         self.dirty = False
         self.set_tool("pan")
         self.refresh_features()
@@ -627,6 +694,7 @@ class MainWindow(DesktopActions, QMainWindow):
             self.canvas.set_image(self.terrain.rgb(**display_kwargs(self.preferences)))
             self.canvas.set_contours(self.make_contours(self.terrain, self.preferences["display"]["contour_interval"]))
         self._restoring = False
+        self.schedule_view_stretch()
         if project and (project.get("_relinked") or project.get("_recovered")):
             self.mark_dirty()
         if self.anchors:
@@ -663,9 +731,10 @@ class MainWindow(DesktopActions, QMainWindow):
         center = self.canvas.mapToScene(self.canvas.viewport().rect().center())
         t = self.terrain
         reference = {"crs_wkt": t.crs.to_wkt() if t.crs else None, "bounds": list(t.bounds), "original_width": t.metadata["original_width"], "original_height": t.metadata["original_height"], "original_resolution_xy": t.metadata["original_resolution_xy"], "source_sha256": t.metadata.get("source_sha256")} if t else None
-        values = {"parameters": {k: v.value() for k, v in self.param_widgets.items()}, "style": self.view_style.currentText(), "azimuth": self.azimuth.value(), "z_factor": self.exaggeration.value(), "view": {"center": [center.x(), center.y()], "scale": self.canvas.transform().m11()}, "terrain_reference": reference, "preferences": copy.deepcopy(self.preferences)}
+        values = {"parameters": vars(self.params()).copy(), "style": self.view_style.currentText(), "azimuth": self.azimuth.value(), "z_factor": self.exaggeration.value(), "view": {"center": [center.x(), center.y()], "scale": self.canvas.transform().m11()}, "terrain_reference": reference, "preferences": copy.deepcopy(self.preferences)}
         if self.anchors and t:
             values["draft"] = {"kind": self.kind(), "coordinate_space": "native", "anchors": [list(t.xy(*anchor)) for anchor in self.anchors], "parameters": values["parameters"], "edit_target": self.edit_target, "segment_range": list(self.segment_range) if self.segment_range else None}
+            values['draft']['fixed_anchor_indices'] = sorted(self._fixed_anchor_indices)
         return values
 
     @staticmethod
@@ -675,8 +744,10 @@ class MainWindow(DesktopActions, QMainWindow):
             return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
         if not isinstance(settings, dict) or not isinstance(settings.get("parameters", {}), dict):
             raise ValueError("Project trace settings must be an object of numeric parameters.")
-        bounds = {"corridor": (2, 250), "smoothing": (0, 50), "line_smoothing": (0, 50), "terrain_weight": (0, 40), "spacing": (.5, 2000), "simplify": (0, 200)}
+        bounds = {"corridor": (1, math.inf), "smoothing": (0, 50), "line_smoothing": (0, 50), "terrain_weight": (0, 1000), "spacing": (.25, 2000), "simplify": (0, 200)}
         for key, value in settings.get("parameters", {}).items():
+            if key == 'relax_anchors' and not isinstance(value, bool):
+                raise ValueError("Project setting 'relax_anchors' must be true or false.")
             if key in bounds and (not number(value) or not bounds[key][0] <= value <= bounds[key][1]):
                 raise ValueError(f"Project setting '{key}' is outside the supported range.")
         if settings.get("style", "Terrain") not in ("Terrain", "Hillshade", "Slope", "Elevation"):
@@ -709,6 +780,7 @@ class MainWindow(DesktopActions, QMainWindow):
                     raise ValueError("Project terrain reference has an invalid coordinate system.") from exc
 
     def restore_settings(self, settings):
+        self.relax_guides.setChecked(settings.get('parameters', {}).get('relax_anchors', False))
         self.param_widgets['line_smoothing'].setValue(settings.get('parameters', {}).get('line_smoothing', 0))
         for k, value in settings.get("parameters", {}).items():
             if k in self.param_widgets:
@@ -730,8 +802,13 @@ class MainWindow(DesktopActions, QMainWindow):
             self._activate_draft_kind(draft["kind"])
             self.anchors = [tuple(self.terrain.rc(*p)) for p in draft["anchors"]]
             self._anchor_exact = {i: list(p) for i, p in enumerate(draft["anchors"])}
+            self._fixed_anchor_indices = set(draft.get('fixed_anchor_indices', []))
+            if draft.get('parameters'):
+                self.load_feature_parameters({'parameters': draft['parameters']})
             self.edit_target = draft.get("edit_target")
             self.segment_range = tuple(draft["segment_range"]) if draft.get("segment_range") else None
+            if self.segment_range:
+                self._fixed_anchor_indices.update((0, len(self.anchors) - 1))
             if self.edit_target:
                 self.select_feature(self.edit_target)
             self.anchor_label.setText(f"Restored draft · {len(self.anchors)} anchors")
@@ -826,8 +903,8 @@ class MainWindow(DesktopActions, QMainWindow):
     def show_tool_instructions(self, tool):
         instructions = {
             'pan': 'Drag to pan. Scroll to zoom. Click a saved line to inspect it. F fits the terrain.',
-            'stream': 'Click along a channel upstream to downstream. Drag guide points to adjust them, then preview.',
-            'breakline': 'Click along the crest or bank edge. Drag guide points or tune settings before accepting.',
+            'stream': 'Click a rough guide upstream to downstream. Drag points to adjust; Shift-click an edge to insert. Select a point and Delete to remove. Ctrl+Z/Y undo/redo.',
+            'breakline': 'Click a rough guide along the crest or bank. Drag points; Shift-click an edge to insert. Select a point and Delete to remove. Ctrl+Z/Y undo/redo.',
             'manual': 'Click vertices for a hand-drawn line. Snapping helps connect existing lines; Alt bypasses it.',
             'edit': 'Select a line. Click or drag a white vertex; Delete removes it. Double-click an edge to insert. Use Correct segment for a local retrace.',
         }
@@ -841,12 +918,61 @@ class MainWindow(DesktopActions, QMainWindow):
         return self.canvas.mode if self.canvas.mode in ('stream', 'manual') else 'stream'
 
     def params(self):
-        return TraceParams(**{k: w.value() for k, w in self.param_widgets.items()})
+        return TraceParams(**{k: w.value() for k, w in self.param_widgets.items()}, relax_anchors=self.relax_guides.isChecked())
 
     def reset_parameters(self):
-        for name, value in vars(TraceParams()).items():
+        for name, value in vars(default_params(self.terrain, self.kind()) if self.terrain else TraceParams()).items():
             if name in self.param_widgets:
                 self.param_widgets[name].setValue(value)
+        self.relax_guides.setChecked(True)
+        self.preset.setCurrentText('Balanced')
+        self.update_distance_guidance()
+
+    def update_distance_guidance(self):
+        if not self.terrain:
+            return
+        t = self.terrain
+        radius = self.param_widgets['corridor'].value() * t.resolution
+        spacing = self.param_widgets['spacing'].value() * t.resolution
+        self.units_label.setText(f"1 working cell = {t.resolution:g} {t.units}.\nSearch radius: {radius:g} {t.units}\nTarget spacing: {spacing:g} {t.units}\nStart with 12 cells search / 3 cells spacing. Widen search only if the guide misses the feature; keep spacing small to retain editable detail.")
+
+    def toggle_guide_edit(self, checked):
+        if not hasattr(self, 'canvas'):
+            return
+        self.canvas.guide_edit = checked
+        if checked:
+            self.instructions.setText('Drag a numbered guide to move it. Click a guide edge to insert a point. Select a point and Delete to remove it. Ctrl+Z/Y undo and redo. Turn off Edit guide points to extend the line.')
+        else:
+            self.show_tool_instructions(self.canvas.mode if self.canvas.mode in self.tool_buttons else 'stream')
+        self.canvas.setFocus()
+
+    def choose_anchor(self, index):
+        if self.busy:
+            return
+        self.selected_anchor = index
+        self.draw_overlays()
+        self.update_buttons()
+
+    def draft_state(self):
+        return copy.deepcopy((self.anchors, self._anchor_exact, self._fixed_anchor_indices, self.selected_anchor))
+
+    def snapshot_draft(self):
+        self.draft_history.append(self.draft_state())
+        self.draft_history = self.draft_history[-int(self.preferences['editing']['history_limit']):]
+        self.draft_future.clear()
+
+    def restore_draft_state(self, state):
+        self.anchors, self._anchor_exact, self._fixed_anchor_indices, self.selected_anchor = copy.deepcopy(state)
+        self.invalidate_preview()
+        self.anchor_label.setText(f'{len(self.anchors)} guide points · Ctrl+Z/Y undo/redo')
+        self.schedule_recovery()
+
+    def insert_anchor(self, after_index, row, col):
+        self.add_anchor(row, col, after_index + 1)
+
+    def delete_anchor(self):
+        if self.selected_anchor is not None:
+            self.remove_anchor(self.selected_anchor)
 
     def invalidate_preview(self, *_):
         self.preview = None
@@ -854,13 +980,13 @@ class MainWindow(DesktopActions, QMainWindow):
             self.draw_overlays()
             self.update_buttons()
         if self.terrain:
-            self.units_label.setText(f"1 working pixel = {self.terrain.resolution:g} {self.terrain.units}.\nTarget spacing: {self.param_widgets['spacing'].value() * self.terrain.resolution:g} {self.terrain.units}; start at 5–10 cells.")
+            self.update_distance_guidance()
             if not self._restoring and not self.busy:
                 self.mark_dirty()
         if self.preferences['editing']['auto_preview'] and len(self.anchors) >= 2 and not self._restoring:
             self.preview_debounce.start(450)
 
-    def add_anchor(self, row, col):
+    def add_anchor(self, row, col, insertion=None):
         if self.busy or not self.terrain:
             return
         xy = self.point_for_edit(row, col)
@@ -869,34 +995,44 @@ class MainWindow(DesktopActions, QMainWindow):
             self.statusBar().showMessage('Place anchors inside valid elevation data.')
             return
         point = (r, c)
-        if self.anchors and math.dist(self.anchors[-1], point) < 1e-7:
+        if insertion is None:
+            insertion = len(self.anchors) - 1 if self.segment_range else len(self.anchors)
+        if not 0 <= insertion <= len(self.anchors):
             return
-        if self.segment_range:
-            insertion = len(self.anchors) - 1
-            self.anchors.insert(insertion, point)
-            self._anchor_exact = {(i + 1 if i >= insertion else i): p for i, p in self._anchor_exact.items()}
-            self._anchor_exact[insertion] = list(xy)
-        else:
-            self._anchor_exact[len(self.anchors)] = list(xy)
-            self.anchors.append(point)
+        if any(math.dist(p, point) < 1e-7 for p in self.anchors[max(0, insertion - 1):insertion + 1]):
+            return
+        self.snapshot_draft()
+        self.anchors.insert(insertion, point)
+        self._anchor_exact = {(i + 1 if i >= insertion else i): p for i, p in self._anchor_exact.items()}
+        self._anchor_exact[insertion] = list(xy)
+        self._fixed_anchor_indices = {i + 1 if i >= insertion else i for i in self._fixed_anchor_indices}
+        if self._last_point_snapped:
+            self._fixed_anchor_indices.add(insertion)
+        self.selected_anchor = insertion
         self.preview = None
         self.draw_overlays()
         self.update_buttons()
-        self.anchor_label.setText(f'{len(self.anchors)} anchors · drag to adjust · Backspace removes last')
+        self.anchor_label.setText(f'{len(self.anchors)} guide points · drag to adjust · Ctrl+Z/Y undo/redo')
         self.statusBar().showMessage('Add another guide point or Trace preview. Enter previews; Enter again applies.')
         self.schedule_recovery()
         if self.preferences['editing']['auto_preview'] and len(self.anchors) >= 2:
             self.preview_debounce.start(450)
 
-    def remove_anchor(self):
+    def remove_anchor(self, index=None):
         if self.busy or not self.anchors:
             return
-        if self.segment_range and len(self.anchors) <= 2:
+        if index is None:
+            index = len(self.anchors) - (2 if self.segment_range else 1)
+        if self.segment_range and (len(self.anchors) <= 2 or index in (0, len(self.anchors) - 1)):
             self.statusBar().showMessage('Correction boundaries are fixed; Cancel edit to choose new boundaries.')
             return
-        index = len(self.anchors) - (2 if self.segment_range else 1)
+        if not 0 <= index < len(self.anchors):
+            return
+        self.snapshot_draft()
         self.anchors.pop(index)
         self._anchor_exact = {(i - 1 if i > index else i): p for i, p in self._anchor_exact.items() if i != index}
+        self._fixed_anchor_indices = {i - 1 if i > index else i for i in self._fixed_anchor_indices if i != index}
+        self.selected_anchor = min(index, len(self.anchors) - 1) if self.anchors else None
         self.invalidate_preview()
         self.anchor_label.setText(f'{len(self.anchors)} anchors')
         self.schedule_recovery()
@@ -906,6 +1042,7 @@ class MainWindow(DesktopActions, QMainWindow):
             self.cancel_job()
             return
         self.preview_debounce.stop()
+        self._preview_pending = False
         self.anchors = []
         self.preview = None
         self.edit_target = None
@@ -913,6 +1050,11 @@ class MainWindow(DesktopActions, QMainWindow):
         self.segment_first = None
         self._draft_kind = None
         self._anchor_exact = {}
+        self._fixed_anchor_indices = set()
+        self.selected_anchor = None
+        self.draft_history.clear()
+        self.draft_future.clear()
+        self.guide_edit_button.setChecked(False)
         if self.canvas.mode == 'segment':
             self.canvas.set_mode('edit')
         if self.canvas.mode in self.tool_buttons:
@@ -924,6 +1066,7 @@ class MainWindow(DesktopActions, QMainWindow):
         self.schedule_recovery()
 
     def draw_overlays(self):
+        self.canvas.selected_anchor = self.selected_anchor
         self.canvas.set_overlays(self.features, self.selected, self.anchors, self.preview, self.kind(), self.selected_vertex, self.segment_range)
 
     def enter_action(self):
@@ -933,15 +1076,22 @@ class MainWindow(DesktopActions, QMainWindow):
             self.trace_preview()
 
     def trace_preview(self):
-        if self.busy or not self.terrain or len(self.anchors) < 2:
+        if not self.terrain or len(self.anchors) < 2:
+            self._preview_pending = False
             return
+        if self.busy:
+            if self.preferences['editing']['auto_preview']:
+                self._preview_pending = True
+            return
+        self._preview_pending = False
         self.preview_debounce.stop()
         anchors, params, kind = list(self.anchors), self.params(), self.kind()
         cells = [(math.floor(r + .5), math.floor(c + .5)) for r, c in anchors]
         if kind != 'manual' and any(a == b for a, b in zip(cells, cells[1:])):
             self.error('Adjacent guide points occupy the same working cell. Move one farther apart or use Manual line for subcell geometry.')
             return
-        self.start_job('Following terrain inside the guide corridor…', lambda: trace(self.terrain, anchors, kind, params, cancel=self._cancel_event.is_set), self.install_preview)
+        fixed = sorted(self._fixed_anchor_indices)
+        self.start_job('Following terrain inside the guide corridor…', lambda: trace(self.terrain, anchors, kind, params, cancel=self._cancel_event.is_set, fixed_anchor_indices=fixed), self.install_preview)
 
     def install_preview(self, result):
         # Preserve exact snapped guide coordinates, including subcell endpoints
@@ -951,6 +1101,8 @@ class MainWindow(DesktopActions, QMainWindow):
             if self.kind() == 'manual':
                 break
             if anchor_index >= len(self.anchors):
+                continue
+            if self.relax_guides.isChecked() and anchor_index not in self._fixed_anchor_indices:
                 continue
             r, c = self.anchors[anchor_index]
             cell = (math.floor(r + .5), math.floor(c + .5))
@@ -975,6 +1127,7 @@ class MainWindow(DesktopActions, QMainWindow):
         if self.kind() == 'stream' and gain > max(.001, float(np.ptp(arr[:, 2])) * .02):
             result.warnings.append('This line contains uphill segments. Check direction, pits, bridges, and anchor placement; no depression filling is applied.')
         result.anchors = [list(self.terrain.xy(*a)) for a in self.anchors]
+        result.fixed_anchor_indices = sorted(self._fixed_anchor_indices)
         self.preview = result
         self.draw_overlays()
         self.show_details(result.coordinates, result.warnings)
@@ -1017,6 +1170,8 @@ class MainWindow(DesktopActions, QMainWindow):
             self.snapshot()
             self.features.append(feature)
         self.selected = feature['id']
+        if feature.get('anchors'):
+            feature['fixed_anchor_indices'] = sorted(self._fixed_anchor_indices)
         self.selected_vertex = None
         self.clear_draft()
         self.refresh_features()
@@ -1087,6 +1242,11 @@ class MainWindow(DesktopActions, QMainWindow):
         self.refresh_features()
 
     def undo(self):
+        if not self.busy and (self.anchors or self.edit_target or self.draft_history or self.draft_future):
+            if self.draft_history:
+                self.draft_future.append(self.draft_state())
+                self.restore_draft_state(self.draft_history.pop())
+            return
         if self.busy or self.anchors or self.edit_target or self.segment_first is not None or not self.history:
             return
         self.future.append(copy.deepcopy(self.features))
@@ -1097,6 +1257,11 @@ class MainWindow(DesktopActions, QMainWindow):
         self.refresh_features()
 
     def redo(self):
+        if not self.busy and (self.anchors or self.edit_target or self.draft_history or self.draft_future):
+            if self.draft_future:
+                self.draft_history.append(self.draft_state())
+                self.restore_draft_state(self.draft_future.pop())
+            return
         if self.busy or self.anchors or self.edit_target or self.segment_first is not None or not self.future:
             return
         self.history.append(copy.deepcopy(self.features))
@@ -1160,22 +1325,55 @@ class MainWindow(DesktopActions, QMainWindow):
         else:
             self.coord_label.setText("")
 
-    def render_terrain(self, *_):
+    def sync_display_controls(self):
+        for widget, key in ((self.palette_choice, 'palette'), (self.range_choice, 'stretch')):
+            widget.setCurrentIndex(widget.findData(self.preferences['display'][key]))
+
+    def change_display_controls(self, *_):
+        if self.busy:
+            return
+        proposed = copy.deepcopy(self.preferences)
+        proposed['display']['palette'] = self.palette_choice.currentData()
+        proposed['display']['stretch'] = self.range_choice.currentData()
+        try:
+            self.apply_preferences(normalize_preferences(proposed))
+        except ValueError as exc:
+            self.sync_display_controls()
+            self.error(str(exc))
+
+    def schedule_view_stretch(self):
+        if not self.terrain or self.preferences['display']['stretch'] != 'view':
+            return
+        self._view_stretch_pending = True
+        self.view_debounce.start(180)
+
+    def refresh_view_stretch(self):
+        if not self.terrain or self.preferences['display']['stretch'] != 'view':
+            self._view_stretch_pending = False
+            return
+        if self.busy or self._restoring:
+            return  # job_finished schedules the latest viewport, without a queue.
+        self._view_stretch_pending = False
+        self.render_terrain(view_only=True)
+
+    def render_terrain(self, *_, view_only=False):
         if not self.terrain or self.busy:
             return
         style, azimuth, z_factor = self.view_style.currentText(), self.azimuth.value(), self.exaggeration.value()
         options = display_kwargs(self.preferences)
+        bounds = self.canvas.visible_bounds()
         interval = self.preferences['display']['contour_interval']
-        if not self._restoring:
+        if not self._restoring and not view_only:
             self.mark_dirty()
         def calculate():
-            rgb = self.terrain.rgb(style, azimuth=azimuth, z_factor=z_factor, **options)
-            contours = self.make_contours(self.terrain, interval)
+            rgb = self.terrain.rgb(style, azimuth=azimuth, z_factor=z_factor, view_bounds=bounds, **options)
+            contours = None if view_only else self.make_contours(self.terrain, interval)
             return rgb, contours
         def complete(pair):
             self.canvas.set_image(pair[0])
-            self.canvas.set_contours(pair[1])
-        self.start_job('Updating terrain display…', calculate, complete)
+            if pair[1] is not None:
+                self.canvas.set_contours(pair[1])
+        self.start_job('Updating terrain display…', calculate, complete, quiet=view_only)
 
     def show_help(self):
         QMessageBox.information(self, "TracerTool workflow", (

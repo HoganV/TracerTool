@@ -170,7 +170,7 @@ def test_source_fingerprint_cached_opt_in_and_detects_changed_source(tmp_path):
         terrain.fingerprint()
 
 
-@pytest.mark.parametrize('palette', ['earth', 'gray', 'grayscale', 'viridis', 'ocean', 'inferno', 'terrain'])
+@pytest.mark.parametrize('palette', ['earth', 'ras', 'topographic', 'spectral', 'gray', 'grayscale', 'viridis', 'ocean', 'inferno', 'terrain'])
 def test_render_palettes_custom_stretch_and_gamma_preserve_source(tmp_path, palette):
     rr, cc = np.mgrid[:30, :40]
     data = (rr * rr + cc * cc).astype('float32')
@@ -200,3 +200,64 @@ def test_render_controls_have_effect_and_validate_bounds(tmp_path):
         with pytest.raises(ValueError):
             terrain.rgb(**options)
     assert len(terrain._render_cache) <= 4
+
+
+def test_view_stretch_uses_visible_valid_elevations_and_preserves_source(tmp_path):
+    data = np.arange(72, dtype='float32').reshape(8, 9)
+    data[2, 3] = np.nan
+    path = write_dem(tmp_path, data)
+    terrain = Terrain.load(path)
+    source_bytes = path.read_bytes()
+    source_z = terrain.sample(*terrain.xy(4, 6))
+    original_data = terrain.data.copy()
+    bounds = (2, 5, 3, 7)  # Stops are excluded; the minimum cell is NoData.
+    visible = terrain.rgb('Elevation', palette='ras', stretch='view', view_bounds=bounds)
+    expected = terrain.rgb('Elevation', palette='ras', stretch='custom', low=22, high=42)
+    np.testing.assert_array_equal(visible, expected)
+    np.testing.assert_array_equal(visible[2, 3], [24, 30, 40])
+    assert terrain.rgb('Elevation', palette='ras', stretch='view', view_bounds=bounds) is visible
+    assert np.any(visible != terrain.rgb('Elevation', palette='ras', stretch='view',
+                                        view_bounds=(5, 8, 3, 7)))
+    np.testing.assert_array_equal(terrain.data, original_data)
+    assert terrain.sample(*terrain.xy(4, 6)) == source_z
+    assert path.read_bytes() == source_bytes
+
+
+def test_view_stretch_rounds_outward_and_clips_raster_bounds(tmp_path):
+    terrain = Terrain.load(write_dem(tmp_path, np.arange(72, dtype='float32').reshape(8, 9)))
+    rgb = terrain.rgb('Elevation', stretch='view', view_bounds=(-12.2, 3.1, 6.8, 100.2))
+    expected = terrain.rgb('Elevation', stretch='custom', low=6, high=35)
+    np.testing.assert_array_equal(rgb, expected)
+    # Clipped equivalent bounds reuse the same render.
+    assert terrain.rgb('Elevation', stretch='view', view_bounds=(0, 4, 6, 9)) is rgb
+
+
+@pytest.mark.parametrize('bounds', [None, (20, 30, 0, 8), (2, 2, 0, 8),
+                                    (3.6, 3.1, 0, 8), (2.2, 2.2, 0, 8),
+                                    (0, 2, 0, 2)])
+def test_view_stretch_without_visible_valid_cells_falls_back_to_full_range(tmp_path, bounds):
+    data = np.arange(72, dtype='float32').reshape(8, 9)
+    data[:2, :2] = np.nan
+    terrain = Terrain.load(write_dem(tmp_path, data))
+    expected = terrain.rgb('Elevation', stretch='minmax')
+    actual = terrain.rgb('Elevation', stretch='view', view_bounds=bounds)
+    np.testing.assert_array_equal(actual, expected)
+
+
+def test_view_stretch_flat_visible_area_is_stable(tmp_path):
+    data = np.full((8, 9), 10., dtype='float32')
+    data[0, 0], data[-1, -1] = 0, 20
+    terrain = Terrain.load(write_dem(tmp_path, data))
+    image = terrain.rgb('Elevation', palette='gray', stretch='view', view_bounds=(2, 6, 2, 7))
+    np.testing.assert_array_equal(image[3, 4], [136, 136, 136])
+    assert np.isfinite(image).all()
+    assert terrain.rgb('Elevation', palette='gray', stretch='view', view_bounds=(2, 6, 2, 7)) is image
+
+
+@pytest.mark.parametrize('bounds', [(0, 1, 2), (0, 1, 2, float('nan')),
+                                    (0, float('inf'), 2, 3), 'abcd', 12,
+                                    (0, True, 0, 2)])
+def test_view_stretch_rejects_invalid_bounds(tmp_path, bounds):
+    terrain = Terrain.load(write_dem(tmp_path, np.ones((8, 9), dtype='float32')))
+    with pytest.raises(ValueError, match='bounds'):
+        terrain.rgb(stretch='view', view_bounds=bounds)

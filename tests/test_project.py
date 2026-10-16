@@ -25,6 +25,12 @@ class SmoothParams(Params):
     line_smoothing: float = 4
 
 
+@dataclass
+class RelaxedParams(Params):
+    line_smoothing: float = 0
+    relax_anchors: bool = True
+
+
 @pytest.fixture
 def feature():
     result = SimpleNamespace(
@@ -110,6 +116,120 @@ def test_legacy_parameters_stay_absent_without_new_defaults(tmp_path, terrain_fi
     assert loaded["features"][0]["parameters"] == asdict(Params())
     assert loaded["settings"]["draft"]["parameters"] == asdict(Params())
     assert loaded["features"][0]["parameters"].get("line_smoothing", 0) == 0
+    assert "relax_anchors" not in loaded["features"][0]["parameters"]
+    assert "relax_anchors" not in loaded["settings"]["draft"]["parameters"]
+    assert "fixed_anchor_indices" not in loaded["settings"]["draft"]
+    assert loaded["features"][0]["coordinates"] == feature["coordinates"]
+
+
+@pytest.mark.parametrize("relaxed", [True, False])
+def test_relaxed_draft_roundtrip_moves_with_source_and_exports(tmp_path, terrain_file, relaxed):
+    params = RelaxedParams(corridor=100_000_000, relax_anchors=relaxed)
+    result = SimpleNamespace(coordinates=[[500000, 4500000, 10], [500005, 4500005, 9]],
+                             anchors=[[500001, 4500001], [500006, 4500006]], fixed_anchor_indices=[1],
+                             metrics={}, warnings=[])
+    line = project.new_feature("Rough guides", "stream", result, params)
+    original = copy.deepcopy(line)
+    settings = {"draft": {"kind": "stream", "anchors": result.anchors,
+                           "fixed_anchor_indices": [1], "parameters": asdict(params)}}
+    path = tmp_path / "rough.tracer.json"
+    project.save_project(path, terrain_file, [line], settings)
+    moved = tmp_path / "moved"
+    moved.mkdir()
+    terrain_file.parent.rename(moved / "terrain")
+    path.rename(moved / path.name)
+    loaded = project.load_project(moved / path.name)
+    assert loaded["version"] == 1
+    assert loaded["terrain_path"] == str(moved / "terrain" / "sample.tif")
+    assert loaded["features"] == [original]
+    assert loaded["settings"] == settings
+    project.export_geojson(moved / "rough.geojson", loaded["features"], "EPSG:26915")
+    exported = json.loads((moved / "rough.geojson").read_text())["features"][0]
+    assert exported["geometry"]["coordinates"] == original["coordinates"]
+    assert exported["properties"]["parameters"] == asdict(params)
+    assert exported["properties"]["fixed_anchor_indices"] == [1]
+    project.export_shapefile(moved / "rough.shp", loaded["features"], "EPSG:26915")
+    with shapefile.Reader(str(moved / "rough.shp")) as reader:
+        shape = reader.shape(0)
+        assert [list(xy) + [z] for xy, z in zip(shape.points, shape.z)] == original["coordinates"]
+        assert reader.record(0).as_dict()["corr_px"] == params.corridor
+
+
+@pytest.mark.parametrize("value", [None, 0, 1, "true", [], {}, float("nan")])
+@pytest.mark.parametrize("location", ["feature", "draft"])
+def test_invalid_relax_anchors_rejected_on_save_and_load(tmp_path, terrain_file, feature, value, location):
+    path = tmp_path / "good.tracer.json"
+    project.save_project(path, terrain_file, [feature], {})
+    original = path.read_bytes()
+    settings = {}
+    if location == "feature":
+        feature["parameters"]["relax_anchors"] = value
+    else:
+        settings["draft"] = {"kind": "stream", "anchors": [[2, 3]],
+                             "parameters": {**asdict(Params()), "relax_anchors": value}}
+    with pytest.raises(ValueError, match="relax_anchors"):
+        project.save_project(path, terrain_file, [feature], settings)
+    assert path.read_bytes() == original
+    document = json.loads(original)
+    document.update(features=[feature], settings=settings)
+    path.write_text(json.dumps(document))
+    with pytest.raises(ValueError, match="relax_anchors"):
+        project.load_project(path)
+
+
+@pytest.mark.parametrize("indices", [[], [0], [1], [1, 0]])
+def test_valid_fixed_anchor_indices_roundtrip(tmp_path, terrain_file, indices):
+    settings = {"draft": {"kind": "stream", "anchors": [[2, 3], [4, 5]],
+                           "fixed_anchor_indices": indices}}
+    path = tmp_path / "draft.tracer.json"
+    project.save_project(path, terrain_file, [], settings)
+    assert project.load_project(path)["settings"] == settings
+
+
+@pytest.mark.parametrize("indices", [None, "0", 0, [True], [0.0], [-1], [2], [0, 0], [[0]], [{}]])
+def test_invalid_fixed_anchor_indices_cannot_replace_project(tmp_path, terrain_file, indices):
+    path = tmp_path / "draft.tracer.json"
+    project.save_project(path, terrain_file, [], {})
+    original = path.read_bytes()
+    settings = {"draft": {"kind": "stream", "anchors": [[2, 3], [4, 5]],
+                           "fixed_anchor_indices": indices}}
+    with pytest.raises(ValueError, match="fixed_anchor_indices"):
+        project.save_project(path, terrain_file, [], settings)
+    assert path.read_bytes() == original
+    document = json.loads(original)
+    document["settings"] = settings
+    path.write_text(json.dumps(document))
+    with pytest.raises(ValueError, match="fixed_anchor_indices"):
+        project.load_project(path)
+
+
+@pytest.mark.parametrize("indices", [None, [True], [0.0], [-1], [2], [0, 0], [[0]]])
+def test_invalid_feature_fixed_anchor_indices_rejected(tmp_path, terrain_file, feature, indices):
+    feature["anchors"] = [point[:2] for point in feature["coordinates"][:2]]
+    feature["fixed_anchor_indices"] = indices
+    with pytest.raises(ValueError, match="fixed_anchor_indices"):
+        project.save_project(tmp_path / "draft.tracer.json", terrain_file, [feature], {})
+
+
+def test_fixed_feature_indices_require_existing_guides(tmp_path, terrain_file, feature):
+    feature["fixed_anchor_indices"] = [0]
+    with pytest.raises(ValueError, match="fixed_anchor_indices"):
+        project.save_project(tmp_path / "draft.tracer.json", terrain_file, [feature], {})
+
+
+@pytest.mark.parametrize("radius", [1, 10_000, 1e200])
+def test_search_radius_has_no_artificial_project_cap(tmp_path, terrain_file, feature, radius):
+    feature["parameters"]["corridor"] = radius
+    path = tmp_path / "radius.tracer.json"
+    project.save_project(path, terrain_file, [feature], {})
+    assert project.load_project(path)["features"] == [feature]
+
+
+@pytest.mark.parametrize("radius", [0.5, 0, -1, True, float("inf"), float("nan")])
+def test_invalid_search_radius_rejected(tmp_path, terrain_file, feature, radius):
+    feature["parameters"]["corridor"] = radius
+    with pytest.raises(ValueError, match="corridor"):
+        project.save_project(tmp_path / "radius.tracer.json", terrain_file, [feature], {})
 
 
 @pytest.mark.parametrize("value", [-1, 51, True, "4", None, float("nan"), float("inf"), 10 ** 1000])

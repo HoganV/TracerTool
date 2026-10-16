@@ -32,8 +32,8 @@ _RANGES = {
     ("session", "working_dimension"): (256, 8192),
 }
 _CHOICES = {
-    ("display", "palette"): {"earth", "viridis", "gray", "ocean"},
-    ("display", "stretch"): {"percentile", "minmax", "custom"},
+    ("display", "palette"): {"earth", "ras", "topographic", "spectral", "viridis", "gray", "ocean", "inferno"},
+    ("display", "stretch"): {"percentile", "minmax", "view", "custom"},
     ("display", "vertical_units"): {"auto", "m", "foot", "US survey foot"},
     ("export", "scope"): {"checked", "selected", "all"},
 }
@@ -110,8 +110,10 @@ class PreferencesDialog(QDialog):
         layout.addWidget(self.tabs, 1)
         self._terrain_tab(terrain)
         display = self._tab("Display")
-        self._combo(display, "display", "palette", "Elevation palette", [("Earth", "earth"), ("Viridis", "viridis"), ("Grayscale", "gray"), ("Ocean", "ocean")])
-        self._combo(display, "display", "stretch", "Elevation range", [("Clipped 1–99 percentiles", "percentile"), ("Full minimum–maximum", "minmax"), ("Custom range", "custom")])
+        self._combo(display, "display", "palette", "Elevation palette", [("Earth", "earth"), ("RAS-inspired terrain", "ras"), ("Topographic", "topographic"), ("Spectral", "spectral"), ("Viridis", "viridis"), ("Grayscale", "gray"), ("Ocean", "ocean"), ("Inferno", "inferno")])
+        self._combo(display, "display", "stretch", "Elevation range", [("Clipped 1–99 percentiles", "percentile"), ("Full minimum–maximum", "minmax"), ("Current view minimum–maximum", "view"), ("Custom range", "custom")])
+        self.widgets[("display", "palette")].setToolTip("Colors run from lower to higher elevation. RAS-inspired terrain uses teal, light green, dark green, yellow, orange, red, gray, and white.")
+        self.widgets[("display", "stretch")].setToolTip("Current view updates the color range to the visible terrain minimum and maximum as you pan or zoom. The same elevation can therefore change color between views. NoData is excluded; an empty view uses the full terrain range.")
         self._number(display, "display", "low", "Custom minimum · source Z units")
         self._number(display, "display", "high", "Custom maximum · source Z units")
         self._number(display, "display", "altitude", "Sun altitude · degrees")
@@ -120,7 +122,7 @@ class PreferencesDialog(QDialog):
         self._check(display, "display", "multidirectional", "Blend illumination from multiple directions")
         self._combo(display, "display", "vertical_units", "Z units for display slopes", [("Use source metadata", "auto"), ("Meters", "m"), ("International feet", "foot"), ("US survey feet", "US survey foot")])
         self._number(display, "display", "contour_interval", "Contour interval · source Z units (0 hides)")
-        display.addRow(self._note("Azimuth and relief exaggeration remain in the map toolbar. Vertical-unit override affects slope/hillshade only. Contours use the working grid; at most 80 levels are drawn."))
+        display.addRow(self._note("Current view range follows pan and zoom for Terrain and Elevation views. Azimuth and relief exaggeration remain in the map toolbar. Vertical-unit override affects slope/hillshade only. Contours use the working grid; at most 80 levels are drawn."))
         editing = self._tab("Editing")
         self._check(editing, "editing", "snap_enabled", "Snap to saved line endpoints and vertices")
         self._number(editing, "editing", "snap_radius", "Snap tolerance · screen pixels")

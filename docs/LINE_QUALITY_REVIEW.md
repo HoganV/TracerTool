@@ -1,14 +1,44 @@
 # Line quality review: smooth feature geometry and useful spacing
 
-Status: research, implemented behavior and comparison record for the
-user-requested quality cycle, 2026-10-14. The new levee output has been visually
-reviewed, including a revised stream comparison. Final package checks remain
-separate gates. The earlier 0.2.0 packages are interim builds. The user's
-requested starting point is roughly **5–10 terrain cells
-between output vertices**, with clean lines that follow visible terrain
-features, including levees.
+This document records the original 0.2.0 smoothing comparison and the later
+0.2.2 feedback revision, completed 2026-10-16. The 0.2.0 preference for
+5–10-cell output spacing and smoothing is historical. Current defaults and
+new acceptance evidence are described first; the earlier case comparisons
+remain below so their scope is explicit.
 
-## Initial failure and research rationale
+## Later feedback: 0.2.2
+
+The 2026-10-15 user review found the earlier smoothing and search defaults
+unhelpful on some traces. The current defaults therefore use terrain smoothing
+0, line smoothing 0, search radius 12 cells, target spacing 3 cells and bend
+tolerance 0.75 cells. Smoothing remains an opt-in advanced option. Ordinary
+rough guides can move; exact snapped connections and correction boundaries
+remain fixed. Terrain-response scale and output spacing no longer grow with
+search radius. This section supersedes the default recommendations and
+all-guides-fixed description in the historical 0.2.0 comparison below.
+
+Generated curved valleys, ridges and bank breaks with guides displaced by
+eight cells were checked at one-foot and 30-metre horizontal resolutions.
+Current defaults achieve mean feature error below 0.5 cells and maximum error
+at most 1.1 cells in those cases. Tests also cover flat/pit ambiguity, protected
+connections, NoData and wide-radius searches with 3-cell target spacing. These
+synthetic bounds do not establish positional accuracy on real terrain.
+
+Native Linux interaction checks included a coarser geographic USGS raster
+through an explicitly projected copy and its disclosed approximately
+47.4422-metre working grid. A 500-cell search with 3-cell spacing produced 136
+vertices along 19,036.8 metres, with measured median spacing 142.0 metres and
+range 131.5–142.0 metres. This case illustrates independent search and output
+spacing; it is not an accuracy comparison against ground truth.
+
+The public synthetic demo intentionally retains explicit historical smoothing
+parameters so that it still demonstrates that optional behavior. It is not a
+new-default benchmark. The earlier favorable examples are retained as
+case-specific evidence, not proof that their settings suit every dataset. Current guidance is in the
+[USER_GUIDE.md](USER_GUIDE.md), and current verification is recorded separately
+in [VALIDATION.md](VALIDATION.md).
+
+## Historical 0.2.0 failure and research rationale
 
 The initial output stage limits maximum edge length but retains raw raster-path
 bends. Increasing its spacing parameter alone cannot remove the many short
@@ -27,7 +57,7 @@ valley lines and graph-based removal of noise on 3D meshes. This supports
 separating feature detection from line cleanup, while the mesh setting limits
 direct transfer of their method to this DEM editor. [Author-hosted paper](https://www.wict.pku.edu.cn/GraphicsLab/docs/20200427021436620272.pdf)
 
-## Recommendations used for the revision
+## Recommendations used for the 0.2.0 revision
 
 1. Retain a dense terrain route as evidence, then regularize its XY shape within
    a narrow lateral trust band. Fix user anchors and correction boundaries.
@@ -53,7 +83,7 @@ direct transfer of their method to this DEM editor. [Author-hosted paper](https:
 These are engineering recommendations inferred from the sources and observed
 failure mode, not copied algorithms or established optimal parameter values.
 
-## Implemented revision and observed results
+## Historical 0.2.0 implementation and observed results
 
 The engine now uses bounded Gaussian XY smoothing along arc-length stations,
 then soft cross-profile recentering against local terrain cost. A displacement
@@ -128,7 +158,7 @@ spacing and hydraulic mesh spacing must not be presented as the same control.
 The user's 5–10-cell preference is a geometry/workflow constraint, not a
 universal HEC-RAS rule. [USACE documentation](https://www.hec.usace.army.mil/confluence/rasdocs/rmum/latest/geometry-data/2d-flow-areas)
 
-## Acceptance evidence for this cycle
+## Acceptance criteria used for the 0.2.0 cycle
 
 - Oblique straight ridge/valley: no repeated one-pixel stair steps in the output.
 - Curved synthetic crest and flat-topped levee: bound centerline error while

@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.2.2 — terrain display and draft tracing, 2026-10-16
+
+- Added RAS-inspired terrain, Topographic and Spectral elevation palettes, plus
+  a current-view minimum–maximum color range that updates after pan and zoom.
+- Reined in new trace defaults to a 12-cell search radius, 3-cell target
+  spacing and 0.75-cell bend tolerance. Physical sizes follow the working
+  terrain resolution. Both smoothing stages default to zero in collapsed
+  advanced controls; hover help explains settings, effects and accepted ranges.
+- Removed the arbitrary search-radius ceiling and separated terrain-response
+  scale from corridor width so a broad search can retain close output spacing.
+- Allowed ordinary rough guides to move toward the terrain while preserving
+  snapped connections and local-correction boundaries. Added draft guide
+  move/insert/delete and undo/redo while developing a trace, including rapid
+  insertion followed by a drag without duplicate points.
+- Kept project schema 1 compatible: optional guide-relaxation and fixed-guide
+  fields are validated; old saved geometry is never recomputed on open, and
+  explicit legacy retracing retains fixed guides when the option is absent.
+- Preserved snapped-guide constraints through retracing and reversal, and
+  invalidated stale constraints after geometry edits.
+- Stabilized view-dependent rendering and automatic previews, and kept prior
+  display settings intact when a custom color range is invalid. Display-only
+  palette/range changes preserve an unaccepted preview.
+- Added synthetic checks for rough-guide relaxation on curved valleys, ridges
+  and banks at fine/coarse cell sizes, wide-search spacing, flats, pits and
+  NoData barriers; exercised draft editing and save/reopen/export through
+  native Linux mouse and keyboard control.
+
+Verification and remaining limits are recorded in [docs/VALIDATION.md](docs/VALIDATION.md).
+No 0.2.2 portable package or interactive Windows acceptance is claimed.
+
 ## 0.2.1 — Windows Python 3.14 installation, 2026-10-15
 
 - Fixed the Windows constraints to select PySide6, Addons, Essentials and

@@ -120,6 +120,7 @@ def accept_line(window, kind="manual", anchors=((8, 40), (70, 40))):
 def test_map_trace_accept_undo_redo(window, kind):
     assert not window.dirty
     assert not window.export_button.isEnabled()
+    window.relax_guides.setChecked(False)
     feature = accept_line(window, kind)
     assert feature["kind"] == kind
     assert len(feature["coordinates"]) >= 2

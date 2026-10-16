@@ -24,11 +24,12 @@ LEGACY_PARAMETERS = {"corridor": 30., "smoothing": 1.2, "terrain_weight": 8.,
 
 def test_line_control_defaults_match_engine_and_reset_button(window):
     defaults = asdict(TraceParams())
-    assert defaults["spacing"] == 8
-    assert defaults["smoothing"] == 2
-    assert defaults["line_smoothing"] == 4
-    assert defaults["simplify"] == 1
-    assert {key: widget.value() for key, widget in window.param_widgets.items()} == defaults
+    assert defaults["spacing"] == 3
+    assert defaults["smoothing"] == 0
+    assert defaults["line_smoothing"] == 0
+    assert defaults["simplify"] == .75
+    assert asdict(window.params()) == defaults
+    assert not window.advanced_panel.isVisible()
     for key, value in {"spacing": 64, "smoothing": 40, "line_smoothing": 0, "simplify": 5}.items():
         window.param_widgets[key].setValue(value)
     reset = next(button for button in window.findChildren(QPushButton)
@@ -46,10 +47,10 @@ def test_levee_preset_sets_distinct_terrain_and_line_controls(window):
     window.preset.setCurrentIndex(index)
     window.preset.activated.emit(index)
     assert asdict(window.params()) == {
-        "corridor": 25, "smoothing": 2, "line_smoothing": 4,
-        "terrain_weight": 8, "spacing": 8, "simplify": 1,
+        "corridor": 12, "smoothing": 0, "line_smoothing": 0,
+        "terrain_weight": 10, "spacing": 3, "simplify": .5, "relax_anchors": True,
     }
-    assert "Target spacing: 8" in window.units_label.text()
+    assert "Target spacing: 3" in window.units_label.text()
 
 
 @pytest.mark.parametrize("include_settings", [True, False])
@@ -72,14 +73,14 @@ def test_legacy_project_and_feature_restore_zero_line_smoothing_without_geometry
     assert not window.dirty
     assert path.read_bytes() == saved_bytes
     if include_settings:
-        assert asdict(window.params()) == {**LEGACY_PARAMETERS, "line_smoothing": 0}
+        assert asdict(window.params()) == {**LEGACY_PARAMETERS, "line_smoothing": 0, "relax_anchors": False}
 
     window.param_widgets["line_smoothing"].setValue(8)
     window.param_widgets["spacing"].setValue(64)
     window.select_feature(original["id"])
     window.begin_retrace()
     assert window.edit_target == original["id"]
-    assert asdict(window.params()) == {**LEGACY_PARAMETERS, "line_smoothing": 0}
+    assert asdict(window.params()) == {**LEGACY_PARAMETERS, "line_smoothing": 0, "relax_anchors": False}
     assert window.features == [original]
     window.clear_draft()
     assert window.features == [original]
@@ -135,7 +136,7 @@ def test_legacy_unfinished_draft_reopens_with_zero_line_smoothing(window, tmp_pa
     wait_idle(window)
     assert window.anchors == [(8, 40), (70, 40)]
     assert window.kind() == "manual"
-    assert asdict(window.params()) == {**LEGACY_PARAMETERS, "line_smoothing": 0}
+    assert asdict(window.params()) == {**LEGACY_PARAMETERS, "line_smoothing": 0, "relax_anchors": False}
     assert window.preview is None
     assert window.features == []
 
@@ -146,7 +147,7 @@ def test_spacing_readout_reports_accepted_geometry_independently_of_next_target(
     expected = (f"Spacing: {np.median(distances):.1f} median "
                 f"({distances.min():.1f}–{distances.max():.1f} {window.terrain.units})")
     assert expected in window.metrics_label.text()
-    assert "Target spacing: 8" in window.units_label.text()
+    assert "Target spacing: 3" in window.units_label.text()
     window.param_widgets["spacing"].setValue(40)
     assert "Target spacing: 40" in window.units_label.text()
     assert expected in window.metrics_label.text()

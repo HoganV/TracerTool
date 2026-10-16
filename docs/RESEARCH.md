@@ -1,14 +1,17 @@
 # Terrain tracing: evidence and implementation decisions
 
-Research reviewed 2026-10-14. These sources inform the design; TracerTool is not
-an implementation of every method listed below. The initial and v0.2 goal is to reduce
-clicking while a person supplies the feature's identity and reviews the line.
+Research reviewed 2026-10-14; implementation decisions revised 2026-10-16.
+These sources inform the design; TracerTool is not an implementation of every
+method listed below. The v0.2 goal is to reduce clicking while a person supplies
+the feature's identity and reviews the line.
 
-The subsequent user review requested smoother levee/breakline geometry and
-5–10-cell starting output spacing. The design update and additional primary
-sources are in [LINE_QUALITY_REVIEW.md](LINE_QUALITY_REVIEW.md); the original
-route cost remains the baseline while the output shaping and defaults below
-reflect the accepted quality revision.
+The first user review requested smoother levee/breakline geometry and
+5–10-cell starting output spacing. A later review found that broad search and
+smoothing defaults made practical results worse, and that rough guides should
+be movable. The 0.2.2 decisions below supersede those initial defaults. The
+historical comparisons and primary sources remain in
+[LINE_QUALITY_REVIEW.md](LINE_QUALITY_REVIEW.md); neither visual comparison nor
+synthetic testing establishes accuracy against surveyed ground truth.
 
 ## What the tools mean
 
@@ -31,11 +34,12 @@ additional semantics and evidence that a bare-earth raster may not contain.
 | [Even & Ngo (2020), live curvilinear extraction](https://doi.org/10.5194/isprs-annals-V-2-2020-211-2020) | Demonstrates supervised, responsive extraction of roads and ridges directly from classified LiDAR points. | Supports the interaction choice: the user indicates the intended feature and the tool does repetitive tracing. Their raw-point algorithm is not directly applicable to the supplied TIFFs. |
 | [scikit-image, minimum-cost paths](https://scikit-image.org/docs/stable/api/skimage.graph.html) | Provides grid minimum-cost routing, including geometric step lengths. | Reuse a maintained solver; keep cost construction and coordinate conversion in independently tested modules. |
 
-## Chosen first implementation
+## Current implementation and its baseline
 
-Two or more anchors describe the intended line. Between adjacent anchors, search
-a corridor around their connecting segment. Construct a terrain preference from
-smoothed local shape: low/concave terrain for streams, high/convex terrain for
+Two or more guides describe the intended line. Search a corridor around their
+connecting segments; ordinary assisted guides may relax toward the terrain,
+while snapped connections and segment-correction boundaries remain fixed.
+Construct a terrain preference from local shape with optional smoothing: low/concave terrain for streams, high/convex terrain for
 ridges, and changes in slope for slope breaks. Combine that preference with a
 positive travel cost and guidance toward the intended corridor. The shortest
 accumulated-cost path supplies candidate cells. Invalid cells are barriers.
@@ -47,13 +51,16 @@ the available inputs contain no labeled reference lines. A single tile-wide
 minimum/maximum elevation score would favor regional elevation trends; local
 shape is the more appropriate starting signal.
 
-In the actual v0.2 cost (retained from the first release), Gaussian smoothing is followed by a broader Gaussian
-residual (local terrain position) and the sign of the Laplacian. Streams and
-ridges also use small cross-profile slope, measured normal to the anchor
-chord, to favor a centerline. Streams derive this centering signal from broader
-relief at a scale of at least half the search radius, reducing attraction to
-concave shoreline toes on flat water. Ridges use the finer terrain smoothing
-scale; signed local relief gates both so a flat neighboring field does not win
+In the route cost, optional Gaussian smoothing is followed by a broader
+Gaussian residual (local terrain position) and the sign of the Laplacian.
+Streams and ridges also use small cross-profile slope, measured normal to the
+anchor chord, to favor a centerline. Streams derive this centering signal from
+broader relief, reducing attraction
+to concave shoreline toes on flat water. Since 0.2.2 this feature scale is
+independent of search radius, so widening a corridor no longer blurs away a
+narrow channel merely because the rough guide is far from it. Ridges use a
+finer relief scale; signed local relief gates both so a flat neighboring field
+does not win
 merely because its cross-slope is zero. That term matters because an ideal parabolic
 valley can have constant curvature and local-position residual away from its
 edges. Slope-break mode uses the magnitude of the gradient of slope magnitude.
@@ -69,12 +76,14 @@ heuristic candidate generator, not a certified hard-breakline detector. An
 anchor pair with a broad corridor can select a nearby competing feature.
 Additional anchors or a narrower corridor express the intended route.
 
-Output shaping and spacing are measured in working pixels. Assisted paths now
-receive bounded Gaussian XY smoothing at arc-length stations and soft
+Output shaping and spacing are measured in working pixels. Assisted paths can
+optionally receive bounded Gaussian XY smoothing at arc-length stations and soft
 cross-profile recentering against the local terrain cost. Candidate movement is
 restricted by a displacement band, cost allowance and exact NoData checks.
 This is bounded route refinement, not an implementation of the full
-orientation-lifted curvature solver in the cited research. Guides remain fixed.
+orientation-lifted curvature solver in the cited research. Smoothing defaults
+to zero. Rough guide relaxation is a separate operation from line smoothing;
+protected connections and correction boundaries remain fixed.
 
 Fresh arc-length sampling no longer preserves every tiny raster-path corner.
 The final chord checks reinsert necessary bends where the selected bend
@@ -94,14 +103,36 @@ inspect, not automatic proof that either the terrain or the trace is wrong.
 
 ## Scale and parameter rationale
 
-The supplied rasters have one-foot horizontal cells and foot elevations. Start
-with 2-cell terrain smoothing, a 30-cell search radius, 4-cell line smoothing,
-8-cell target arc spacing and 1-cell bend tolerance. The user selected a
-5–10-cell starting spacing range for this workflow; these are engineering
-defaults, not literature-derived universal optima. On the supplied native
-one-foot data, cell distances correspond to feet. At a different working
-resolution the physical distances change. Neither interpolated XY coordinates
-nor extra vertices establish subcell positional accuracy.
+The original reference rasters have one-foot horizontal cells and foot
+elevations; the additional lower-resolution USGS raster makes assuming that
+all inputs share those units or resolution inappropriate. The conservative
+0.2.2 defaults use 12 working cells of search radius, 3 cells of target spacing,
+0.75 cells of bend tolerance, attraction 8, and zero for both smoothing stages.
+Physical sizes derive from the loaded working grid. For example, a 10-metre
+grid gives a 120-metre radius and 30-metre spacing; this conversion does not
+establish corresponding positional accuracy. Units and vertical datum remain
+those of the source.
+
+These are engineering starting values responding to user-observed failures,
+not literature-derived universal optima. Search radius controls where a route
+may be found; terrain-feature scale controls the response used to find it;
+spacing controls output samples. They must not silently substitute for one
+another. There is no arbitrary maximum corridor radius, although a larger
+search consumes more processing resources and can contain competing features.
+The reported output spacing includes short-edge exceptions for bends,
+protected nodes and NoData barriers.
+
+Ordinary guide points now express approximate intent rather than exact
+constraints. Assisted guides can move laterally across the local guide
+direction toward terrain evidence within the original corridor, and output
+sampling spans unfixed guides rather than restarting at every rough point.
+The relaxation option is on for new drafts; snapped feature connections and
+correction boundaries are protected. A flat or ambiguous cross-section does
+not justify moving a rough guide merely to chase an isolated pit or an
+unlocated slope response. Legacy projects without
+that option keep fixed-guide behavior when explicitly retraced. Loading a
+project never reruns the solver or moves accepted geometry. Project schema 1
+retains optional relaxation and fixed-guide indices with strict validation.
 
 For later adaptive spacing, estimate plan curvature kappa and choose a step
 that keeps chord deviation below an explicit tolerance epsilon, using the
@@ -117,6 +148,25 @@ points, validate the resulting segments against NoData, refresh diagnostics
 and retain provenance. These controls make the heuristic useful in an editing
 workflow without treating its first candidate as ground truth.
 
+## Evidence for the 0.2.2 defaults
+
+The feedback regression cases use generated curved valleys, ridges and bank
+slope breaks at one-foot and 30-metre cell sizes. With guides offset by eight
+cells, the defaults produce mean feature error below 0.5 cells and maximum
+error at most 1.1 cells while preserving source Z and NoData constraints.
+Wide-radius tests keep 3-cell output spacing; flat and isolated-pit cases check
+that ambiguity does not spuriously relocate guides. This is deterministic
+synthetic evidence for the implemented behavior, not a universal accuracy bound.
+
+Native Linux computer-control exercises used fine projected terrain and a
+separate projected copy of the coarser geographic USGS source. Its displayed
+working grid was approximately 47.4422 metres, so the 3-cell target represented
+about 142.3 metres. A 500-cell search retained approximately 142-metre median
+output spacing. The source was not modified. Detailed suite counts, workflow
+measurements and remaining acceptance gates are in [VALIDATION.md](VALIDATION.md).
+No independent labeled real-terrain geometry was available, so real feature
+accuracy and time saved remain unmeasured.
+
 ## How to decide whether an improved algorithm is better
 
 Build a fixed benchmark of hand-reviewed lines across each tile: broad and
@@ -129,7 +179,7 @@ conditioned/accumulation variants under the same anchor budget.
 Measure median and 95th-percentile perpendicular error in cells and map units,
 endpoint displacement, time and clicks to accepted output, NoData crossings,
 junction gaps, profile reversals, and rework rate. Report ambiguous segments
-separately. Synthetic tests prove invariants and numerical behavior; visually
-plausible traces on the six supplied TIFFs do not establish real-world accuracy.
+separately. Synthetic tests demonstrate invariants and numerical behavior; visually
+plausible traces on reference TIFFs do not establish real-world accuracy.
 Only promote a new default after holdout results improve without degrading the
 data-integrity checks.

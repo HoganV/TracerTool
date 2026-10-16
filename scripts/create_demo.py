@@ -70,7 +70,7 @@ def create_demo(output):
     """Write a generated GeoTIFF and portable project, returning its project path.
 
     Repeated runs use the same raster, guide anchors, and feature identities.
-    Geometry follows current default tracing parameters; changing the tracing
+    Geometry uses explicit demonstration parameters; changing the tracing
     engine or application version can legitimately change future fixture bytes.
     """
     output = Path(output).expanduser().resolve()
@@ -87,7 +87,9 @@ def create_demo(output):
         dataset.update_tags(SOURCE="TracerTool analytic synthetic fixture; no external terrain data",
                             AREA_OR_POINT="Area")
     terrain = Terrain.load(terrain_path, compute_fingerprint=True)
-    parameters = TraceParams()
+    # This published example intentionally demonstrates optional smoothing;
+    # new projects use the unsmoothed cell-relative defaults.
+    parameters = TraceParams(corridor=30, smoothing=2, line_smoothing=4, spacing=8, simplify=1, relax_anchors=False)
     rows = [40, 256, 472]
     features = []
     for name, kind, center in (("Curved levee crest", "ridge", levee_center),

@@ -30,6 +30,13 @@ class DesktopActions:
         self.selected_vertex = None
         self._draft_kind = None
         self._anchor_exact = {}
+        self._fixed_anchor_indices = set()
+        self.selected_anchor = None
+        self.draft_history = []
+        self.draft_future = []
+        self._last_point_snapped = False
+        self._view_stretch_pending = False
+        self._preview_pending = False
         self._close_when_idle = False
         self.session_id = str(uuid4())
         directory = os.environ.get("TRACERTOOL_STATE_DIR") or QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppLocalDataLocation)
@@ -58,6 +65,9 @@ class DesktopActions:
         self.preview_debounce = QTimer(self)
         self.preview_debounce.setSingleShot(True)
         self.preview_debounce.timeout.connect(self.trace_preview)
+        self.view_debounce = QTimer(self)
+        self.view_debounce.setSingleShot(True)
+        self.view_debounce.timeout.connect(self.refresh_view_stretch)
 
     def current_feature(self):
         return next((f for f in self.features if f["id"] == self.selected), None)
@@ -74,6 +84,7 @@ class DesktopActions:
         self.refresh_features()
 
     def point_for_edit(self, row, col, excluded=None):
+        self._last_point_snapped = False
         if self.preferences["editing"]["raster_snap"]:
             row, col = math.floor(row + .5), math.floor(col + .5)
         xy = self.terrain.xy(row, col)
@@ -92,6 +103,7 @@ class DesktopActions:
                         best = (distance, coordinate[:2])
             if best:
                 xy = tuple(best[1])
+                self._last_point_snapped = True
         return xy
 
     def choose_vertex(self, index):
@@ -125,7 +137,9 @@ class DesktopActions:
         self.instructions.setText("Click near an edge of the selected line to insert a vertex. Choose Edit vertices to drag points afterward.")
 
     def delete_context(self):
-        if self.canvas.mode in {"edit", "insert"} and self.selected_vertex is not None:
+        if self.anchors:
+            self.delete_anchor()
+        elif self.canvas.mode in {"edit", "insert"} and self.selected_vertex is not None:
             self.delete_vertex()
         else:
             self.delete_feature()
@@ -202,6 +216,9 @@ class DesktopActions:
         self.break_mode.blockSignals(False)
 
     def load_feature_parameters(self, feature):
+        self.relax_guides.blockSignals(True)
+        self.relax_guides.setChecked(feature['parameters'].get('relax_anchors', False))
+        self.relax_guides.blockSignals(False)
         self.param_widgets['line_smoothing'].blockSignals(True)
         self.param_widgets['line_smoothing'].setValue(feature['parameters'].get('line_smoothing', 0))
         self.param_widgets['line_smoothing'].blockSignals(False)
@@ -222,8 +239,9 @@ class DesktopActions:
         anchors = feature.get("anchors") or editing.reconstruct_anchors(self.terrain, feature)
         self.anchors = [tuple(self.terrain.rc(*point)) for point in anchors]
         self._anchor_exact = {i: list(point) for i, point in enumerate(anchors)}
+        self._fixed_anchor_indices = set(feature.get('fixed_anchor_indices', []))
         self.anchor_label.setText(f"Editing {feature['name']} · {len(self.anchors)} guide points")
-        self.instructions.setText("Drag the numbered guide points or change trace settings, then preview. Apply replaces this line; Cancel edit leaves it unchanged.")
+        self.instructions.setText("Drag numbered guides; Shift-click a guide edge to insert. Select a guide and Delete to remove. Ctrl+Z/Y undo/redo guides. Preview, then Apply to replace this line.")
         self.draw_overlays()
         self.update_buttons()
 
@@ -260,6 +278,7 @@ class DesktopActions:
         xy = [feature["coordinates"][start][:2], feature["coordinates"][end][:2]]
         self.anchors = [tuple(self.terrain.rc(*p)) for p in xy]
         self._anchor_exact = {0: xy[0], 1: xy[1]}
+        self._fixed_anchor_indices = {0, 1}
         self.instructions.setText("Click guide points between the two fixed boundaries, or change settings. Preview and Apply correction replace only the pink segment.")
         self.anchor_label.setText(f"Correcting vertices {start + 1}–{end + 1}")
         self.draw_overlays()
@@ -276,8 +295,15 @@ class DesktopActions:
         if self.terrain.sample(*xy) is None:
             self.statusBar().showMessage("Guide points must remain on valid terrain.")
             return
+        if math.dist(self.anchors[index], (r, c)) < 1e-9:
+            return
+        self.snapshot_draft()
         self.anchors[index] = (r, c)
         self._anchor_exact[index] = list(xy)
+        self._fixed_anchor_indices.discard(index)
+        if self._last_point_snapped:
+            self._fixed_anchor_indices.add(index)
+        self.selected_anchor = index
         self.invalidate_preview()
         self.schedule_recovery()
 
@@ -348,6 +374,7 @@ class DesktopActions:
 
     def apply_preferences(self, preferences, use_as_default=False):
         values = normalize_preferences(preferences)
+        editing_changed = values["editing"] != self.preferences["editing"]
 
         def commit(pair=None):
             # Render and validate before changing either project or defaults.
@@ -365,9 +392,11 @@ class DesktopActions:
                     Path(temporary).unlink(missing_ok=True)
                 self.default_preferences = copy.deepcopy(values)
             self.preferences = values
+            self.sync_display_controls()
             self.autosave_timer.setInterval(int(values["session"]["autosave_seconds"] * 1000))
             if self.terrain:
-                self.invalidate_preview()
+                if editing_changed:
+                    self.invalidate_preview()
                 if pair is not None:
                     self.canvas.set_image(pair[0])
                     self.canvas.set_contours(pair[1])
@@ -376,8 +405,9 @@ class DesktopActions:
 
         if self.terrain:
             style, azimuth, z_factor = self.view_style.currentText(), self.azimuth.value(), self.exaggeration.value()
+            bounds = self.canvas.visible_bounds()
             def calculate():
-                rgb = self.terrain.rgb(style, azimuth=azimuth, z_factor=z_factor, **display_kwargs(values))
+                rgb = self.terrain.rgb(style, azimuth=azimuth, z_factor=z_factor, view_bounds=bounds, **display_kwargs(values))
                 contours = self.make_contours(self.terrain, values["display"]["contour_interval"])
                 return rgb, contours
             self.start_job("Applying project settings…", calculate, commit)
@@ -389,16 +419,18 @@ class DesktopActions:
 
     def apply_preset(self, index):
         presets = {
-            "Balanced": dict(corridor=30, smoothing=2, line_smoothing=4, terrain_weight=8, spacing=8, simplify=1),
-            "Levee / embankment": dict(corridor=25, smoothing=2, line_smoothing=4, terrain_weight=8, spacing=8, simplify=1),
-            "Fine ditch / crest": dict(corridor=12, smoothing=1.2, line_smoothing=2, terrain_weight=10, spacing=5, simplify=.5),
-            "Broad channel": dict(corridor=60, smoothing=3, line_smoothing=5, terrain_weight=8, spacing=10, simplify=1),
-            "Noisy terrain": dict(corridor=30, smoothing=4, line_smoothing=6, terrain_weight=8, spacing=10, simplify=1.5),
+            "Balanced": dict(corridor=12, smoothing=0, line_smoothing=0, terrain_weight=8, spacing=3, simplify=.75),
+            "Levee / embankment": dict(corridor=12, smoothing=0, line_smoothing=0, terrain_weight=10, spacing=3, simplify=.5),
+            "Fine ditch / crest": dict(corridor=6, smoothing=0, line_smoothing=0, terrain_weight=10, spacing=2, simplify=.5),
+            "Broad channel": dict(corridor=24, smoothing=0, line_smoothing=0, terrain_weight=8, spacing=3, simplify=.75),
+            "Noisy terrain": dict(corridor=12, smoothing=1, line_smoothing=1, terrain_weight=8, spacing=3, simplify=.75),
         }
         name = self.preset.currentText()
         if name in presets:
             for key, value in presets[name].items():
                 self.param_widgets[key].setValue(value)
+            if name == 'Noisy terrain':
+                self.advanced_button.setChecked(True)
 
     def reproject_terrain(self):
         if self.busy or not self.terrain:

@@ -25,7 +25,7 @@ def test_follows_curving_valley_or_ridge(tmp_path, kind, sign):
     center = 60 + 10 * np.sin((rr - 10) * np.pi / 100)
     data = sign * ((cc - center) ** 2 / 8) + (120 - rr) * .1
     terrain = dem(tmp_path, data)
-    result = trace(terrain, [(10, 60), (110, 60)], kind, TraceParams(corridor=22))
+    result = trace(terrain, [(10, 60), (110, 60)], kind, TraceParams(corridor=22, relax_anchors=False))
     cells = np.array(result.cells)
     expected = 60 + 10 * np.sin((cells[:, 0] - 10) * np.pi / 100)
     assert np.mean(abs(cells[:, 1] - expected)) < 2.5
@@ -154,7 +154,7 @@ def test_rectangular_pixels_preserve_native_distance_and_disclose_controls(tmp_p
     terrain = Terrain.load(path)
     result = trace(terrain, [(5, 5), (15, 5)], 'stream')
     assert result.metrics['length'] == pytest.approx(50)
-    assert result.metrics['corridor_map_units_xy'] == [60, 150]
+    assert result.metrics['corridor_map_units_xy'] == [24, 60]
     assert any('rectangular pixels' in warning for warning in result.warnings)
 
 

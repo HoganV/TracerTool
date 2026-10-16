@@ -1,5 +1,30 @@
 # Application module contracts
 
+## Feedback revision (2026-10-15–16)
+
+Disjoint ownership for this revision: tracing lane owns `tracing.py` and
+`tests/test_tracing.py`, `tests/test_quality.py`; display lane owns `terrain.py`,
+`preferences.py`, `tests/test_terrain.py`, `tests/test_preferences.py`; persistence
+and documentation lane owns `project.py`, its tests, and docs other than this
+contract plus CHANGELOG.md. Integrator owns app/canvas/desktop_actions/editing,
+editing and integration tests, version/configuration, this contract and final
+desktop acceptance. The tracing validation lane owns `tests/test_tracing_feedback.py`.
+
+Implemented compatible interfaces: `TraceParams` uses cell-relative defaults with
+both smoothing defaults zero; `relax_anchors: bool = True` allows rough assisted
+guides to move. Missing persisted `relax_anchors` restores False for an explicit
+legacy retrace; saved coordinates never change on load. `trace` adds optional
+`fixed_anchor_indices` to preserve snapped connections and segment boundaries.
+Search radius accepts finite values of at least one cell without an arbitrary upper cap;
+terrain-feature scale and final target spacing are independent of that radius.
+`default_params(terrain, kind='stream') -> TraceParams` supplies new-draft defaults.
+
+Display adds `ras`, `topographic`, and `spectral` palettes and a `view` stretch.
+`Terrain.rgb(..., view_bounds=None)` accepts clipped half-open raster bounds
+`(row_start, row_stop, col_start, col_stop)` for visible valid-cell min/max.
+The canvas supplies bounds after pan/zoom using a debounced refresh; no visible
+valid cells fall back to the full terrain range. Display changes never alter Z.
+
 Internal contract agreed before parallel implementation. Coordinates are always
 in the DEM CRS; UI scene coordinates are column + 0.5, row + 0.5. Arrays index
 row, column. No silent reprojection. Source elevations are retained for export.
@@ -20,16 +45,22 @@ but tracing refuses unless projected. Reject rotated/sheared transforms in v0.1.
 
 ## `tracing.py`
 
-`TraceParams` dataclass with float fields `corridor=30` (working pixels),
-`smoothing=2` (working pixels), `terrain_weight=8`, `spacing=8` (target working
-pixels), `simplify=1` (bend tolerance in working pixels), and
-`line_smoothing=4` (assisted geometry smoothing in working pixels). Modes: `ridge`, `stream`, `slope_break`,
-`manual`. `trace(terrain, anchors, kind, params) -> TraceResult` accepts anchors
-as (row,col) working pixel indices/floats. Result dataclass: `coordinates`
+`TraceParams` dataclass with float fields `corridor=12` (working cells),
+`smoothing=0` (working cells), `terrain_weight=8`, `spacing=3` (target working
+cells), `simplify=0.75` (bend tolerance in working cells),
+`line_smoothing=0` (assisted geometry smoothing in working cells), and boolean
+`relax_anchors=True`. Modes: `ridge`, `stream`, `slope_break`, `manual`.
+`trace(terrain, anchors, kind, params=None, cancel=None, fixed_anchor_indices=None)
+-> TraceResult` accepts anchors as (row,col) working cell indices/floats.
+Result dataclass: `coordinates`
 (list of [x,y,z]), `cells` (list of [row,col]), `metrics` (JSON-safe dict),
-`warnings` (list[str]). `trace_downstream(terrain, start, params)` optional.
+`warnings` (list[str]), `anchors` (original native XY guides), and
+`fixed_anchor_indices` (explicitly protected guide indices). The last two fields
+default to empty lists for compatibility. `trace_downstream(terrain, start, params)` optional.
 All path vertices including simplified/resampled segments must avoid NoData.
-Assisted endpoints use valid cell centers; manual anchors can be fractional.
+Assisted endpoints use valid cell centers and may move when rough guides are
+enabled; manual anchors can be fractional. Snapped connections and correction
+boundaries stay fixed. Ambiguous terrain leaves guides in place.
 Exact snapped vector anchors are restored by the UI and revalidated. The
 guidance corridor is explicit.
 
@@ -134,7 +165,10 @@ a previous-valid `.bak`. Recovery cleanup failure must not invalidate a
 successful save. A blocked normal recovery folder falls back to a disclosed
 temporary folder; source files are never modified.
 
-### Line-quality revision within unreleased 0.2.0
+### Historical line-quality revision within unreleased 0.2.0
+
+The following defaults describe 0.2.0; the feedback revision above supersedes
+them for new drafts in 0.2.2.
 
 `TraceParams.line_smoothing=4.0` is a new optional output-geometry smoothing
 radius in working cells, valid 0–50, applied to assisted modes only. Terrain

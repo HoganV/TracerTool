@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 import math
 import hashlib
+from numbers import Integral, Real
 
 import numpy as np
 import rasterio
@@ -250,11 +251,16 @@ class Terrain:
 
     def rgb(self, style='Terrain', azimuth=315, altitude=45, z_factor=1, *,
             palette='earth', stretch='percentile', low=None, high=None,
-            shade_strength=.65, gamma=1., multidirectional=False, vertical_units=None):
+            shade_strength=.65, gamma=1., multidirectional=False, vertical_units=None,
+            view_bounds=None):
         """Render a preview without modifying source data, exported Z, or units.
 
-        Elevation stretches are 1st–99th percentile, full min/max, or custom
-        decoded elevation bounds. Palettes color elevation (and optional slope
+        Elevation stretches are 1st–99th percentile, full min/max, visible
+        min/max, or custom decoded elevation bounds. For visible min/max,
+        view_bounds is a half-open (row_start, row_stop, col_start, col_stop)
+        region in the working raster; it is rounded outward and clipped to
+        the raster. An empty or all-NoData region uses the full terrain range.
+        Palettes color elevation (and optional slope
         views); shade_strength blends hillshade into Terrain only. Gamma > 1
         brightens midtones. A known vertical-unit override affects display
         gradients only. Geographic hillshade uses local spherical meter scales
@@ -271,15 +277,20 @@ class Terrain:
         palette = {'terrain': 'earth', 'gray': 'grayscale'}.get(palette, palette)
         palettes = {
             'earth': [[31, 91, 112], [68, 132, 113], [133, 163, 116], [190, 184, 131], [181, 144, 103], [194, 181, 158], [240, 237, 225]],
+            # The requested low-to-high terrain colors, inspired by RAS.
+            # This is an independent ramp, not an official RAS color table.
+            'ras': [[50, 157, 164], [163, 219, 128], [35, 110, 49], [248, 225, 76], [245, 151, 54], [206, 53, 45], [155, 155, 155], [255, 255, 255]],
+            'topographic': [[46, 111, 77], [116, 166, 91], [197, 204, 126], [223, 196, 139], [174, 134, 99], [137, 124, 113], [216, 213, 205], [255, 255, 255]],
+            'spectral': [[59, 79, 163], [57, 145, 185], [102, 194, 165], [171, 221, 164], [255, 255, 191], [254, 224, 139], [253, 174, 97], [244, 109, 67], [213, 62, 79], [158, 1, 66]],
             'grayscale': [[24, 24, 24], [248, 248, 248]],
             'viridis': [[68, 1, 84], [65, 68, 135], [42, 120, 142], [34, 168, 132], [122, 209, 81], [253, 231, 37]],
             'inferno': [[0, 0, 4], [66, 10, 104], [147, 38, 103], [221, 81, 58], [252, 165, 10], [252, 255, 164]],
             'ocean': [[15, 30, 66], [24, 76, 120], [35, 128, 152], [82, 175, 181], [167, 219, 208], [238, 248, 226]],
         }
         if palette not in palettes:
-            raise ValueError('Choose the earth, grayscale, viridis, ocean, or inferno elevation palette.')
-        if stretch not in {'percentile', 'minmax', 'custom'}:
-            raise ValueError('Choose percentile, minmax, or custom elevation stretch.')
+            raise ValueError('Choose the earth, ras, topographic, spectral, grayscale, viridis, ocean, or inferno elevation palette.')
+        if stretch not in {'percentile', 'minmax', 'view', 'custom'}:
+            raise ValueError('Choose percentile, minmax, view, or custom elevation stretch.')
         if stretch == 'custom':
             if not all(isinstance(v, (int, float)) and math.isfinite(v) for v in (low, high)) or high <= low:
                 raise ValueError('Custom elevation bounds must be finite, with maximum greater than minimum.')
@@ -289,9 +300,25 @@ class Terrain:
         vertical_m = _unit_scale(override) if override else None
         if override and vertical_m is None:
             raise ValueError('Choose meters, feet, or US survey feet for the display-only vertical-unit override.')
+        clipped_view = None
+        if stretch == 'view' and view_bounds is not None:
+            try:
+                bounds = tuple(view_bounds)
+            except TypeError as exc:
+                raise ValueError('Visible terrain bounds must contain four finite row/column coordinates.') from exc
+            if len(bounds) != 4 or not all(isinstance(v, Real) and not isinstance(v, bool)
+                                          and (isinstance(v, Integral) or math.isfinite(v)) for v in bounds):
+                raise ValueError('Visible terrain bounds must contain four finite row/column coordinates.')
+            r0, r1, c0, c1 = bounds
+            clipped_view = (max(0, min(self.height, math.floor(r0))),
+                            max(0, min(self.height, math.ceil(r1))),
+                            max(0, min(self.width, math.floor(c0))),
+                            max(0, min(self.width, math.ceil(c1))))
+            if r1 <= r0 or c1 <= c0:
+                clipped_view = (0, 0, 0, 0)
         key = (style, float(azimuth), float(altitude), float(z_factor), palette, stretch,
                low if stretch == 'custom' else None, high if stretch == 'custom' else None,
-               float(shade_strength), float(gamma), bool(multidirectional), override)
+               float(shade_strength), float(gamma), bool(multidirectional), override, clipped_view)
         if key in self._render_cache:
             return self._render_cache[key]
         z = self.surface()
@@ -323,11 +350,20 @@ class Terrain:
         else:
             if stretch == 'custom':
                 lo, hi = low, high
-            elif stretch == 'minmax':
+            elif stretch in {'minmax', 'view'}:
                 lo, hi = self.metadata['min'], self.metadata['max']
+                if stretch == 'view' and clipped_view is not None:
+                    r0, r1, c0, c1 = clipped_view
+                    visible = self.data[r0:r1, c0:c1]
+                    valid = self.valid[r0:r1, c0:c1] & np.isfinite(visible)
+                    if valid.any():
+                        lo, hi = float(visible[valid].min()), float(visible[valid].max())
             else:
                 lo, hi = np.nanpercentile(self.data, [1, 99])
-            norm = np.clip((z - lo) / max(hi - lo, 1e-9), 0, 1)
+            # A flat visible area has no useful range: show a stable midpoint
+            # instead of amplifying numerical noise or dividing by zero.
+            norm = (np.clip((z - lo) / (hi - lo), 0, 1) if hi > lo
+                    else np.where(z < lo, 0., np.where(z > hi, 1., .5)))
             result = _colorize(norm, palettes[palette])
             if style == 'Terrain':
                 result *= (1. - (57. / 65.) * shade_strength + shade_strength * shade[..., None])

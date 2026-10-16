@@ -4,8 +4,10 @@ TracerTool is an independent, offline desktop editor for turning terrain into
 reviewed stream centerlines and breaklines. Version 0.2.0 delivers complete
 local editing, correction, settings, recovery and export workflows, plus Linux
 and Windows portable executables. Phase completion is determined by evidence,
-not by the presence of a UI button or build recipe. Some later-phase work has
-been pulled forward; the remaining acceptance gates below stay explicit.
+not by the presence of a UI button or build recipe. The 0.2.2 feedback revision
+adds conservative tracing defaults, movable draft guides and display options;
+it does not close the independent accuracy or platform acceptance gates. Some
+later-phase work has been pulled forward; the remaining gates stay explicit.
 
 ## Product decisions
 
@@ -73,7 +75,8 @@ NoData endpoints and intervening barriers; rectangular cells; source Z sampling.
 
 **Algorithm correctness:** curved synthetic ridges/valleys/slope changes; flat
 surfaces; competing features; pits; long segments; boundaries; reproducibility;
-anchor preservation; simplification/resampling cannot tunnel through NoData.
+protected-anchor preservation and bounded rough-guide movement;
+simplification/resampling cannot tunnel through NoData.
 Hydrology claims require separate uphill, pit, flat, and outlet diagnostics.
 
 **Project/export correctness:** schema validation; save/load equality; relative

@@ -92,6 +92,12 @@ def _validate_parameters(parameters: Any, label: str) -> None:
             raise ValueError(f"{label} parameter {key} must be {bound}.")
         if key == "line_smoothing" and value > 50:
             raise ValueError(f"{label} parameter line_smoothing must not exceed 50 working pixels.")
+        if key == "corridor" and value < 1:
+            raise ValueError(f"{label} parameter corridor must be at least 1 working pixel.")
+    # Schema 1 did not originally carry this option. Keep its absence intact
+    # so explicit retracing can retain the historical fixed-guide behavior.
+    if "relax_anchors" in parameters and type(parameters["relax_anchors"]) is not bool:
+        raise ValueError(f"{label} parameter relax_anchors must be true or false.")
 
 
 def _validate_anchors(anchors: Any, label: str, *, draft: bool = False) -> None:
@@ -104,6 +110,13 @@ def _validate_anchors(anchors: Any, label: str, *, draft: bool = False) -> None:
             raise ValueError(f"{label} anchor {index + 1} must contain exactly [x, y].")
         for value in anchor:
             _number(value, f"{label} anchor {index + 1}")
+
+
+def _validate_fixed_anchor_indices(indices: Any, anchors: list, label: str) -> None:
+    if (not isinstance(indices, list) or
+            any(type(index) is not int or index < 0 or index >= len(anchors) for index in indices) or
+            len(indices) != len(set(indices))):
+        raise ValueError(f"{label} fixed_anchor_indices must be a list of distinct valid anchor indices.")
 
 
 def _validate_settings(settings: Any) -> None:
@@ -120,6 +133,8 @@ def _validate_settings(settings: Any) -> None:
         if draft.get("coordinate_space", "native") != "native":
             raise ValueError("Saved draft anchors must use native map coordinates.")
         _validate_anchors(draft.get("anchors"), "Saved draft", draft=True)
+        if "fixed_anchor_indices" in draft:
+            _validate_fixed_anchor_indices(draft["fixed_anchor_indices"], draft["anchors"], "Saved draft")
         if "parameters" in draft:
             _validate_parameters(draft["parameters"], "Saved draft")
         if draft.get("edit_target") is not None and (not isinstance(draft["edit_target"], str) or not draft["edit_target"].strip()):
@@ -196,6 +211,8 @@ def _validate_features(features: Any, *, require_features: bool = False) -> None
         _validate_parameters(feature["parameters"], label)
         if "anchors" in feature:
             _validate_anchors(feature["anchors"], label)
+        if "fixed_anchor_indices" in feature:
+            _validate_fixed_anchor_indices(feature["fixed_anchor_indices"], feature.get("anchors", []), label)
         if "provenance" in feature and (not isinstance(feature["provenance"], list) or any(not isinstance(entry, dict) for entry in feature["provenance"])):
             raise ValueError(f"{label} provenance must be a list of event objects.")
 
@@ -217,6 +234,8 @@ def new_feature(name: str, kind: str, result: Any, params: Any) -> dict:
         }
         if getattr(result, "anchors", None) is not None:
             feature["anchors"] = [list(anchor) for anchor in result.anchors]
+        if getattr(result, "fixed_anchor_indices", None) is not None:
+            feature["fixed_anchor_indices"] = list(result.fixed_anchor_indices)
     except (AttributeError, TypeError) as exc:
         raise ValueError("The trace result needs XYZ coordinates, metrics, and warnings.") from exc
     _validate_features([feature])

@@ -9,14 +9,18 @@ than autocomplete or occasional editing assistance.
 AI agents contributed application architecture, terrain-processing and editing
 code, tests, documentation, literature summaries, packaging scripts and local
 verification. A human supplied the intended workflow, requirements, private
-reference terrain and critical visual feedback, including the need for smoother
-lines and wider vertex spacing on levees. The agents used that feedback to
-revise the implementation and exercise the software.
+reference terrain and critical visual feedback. That feedback first requested
+smoother levee lines and wider spacing, then identified poor default behavior,
+overconstrained guides and missing draft-editing/display controls. Agents used
+both rounds of feedback to revise the software, test synthetic examples and
+operate the real Linux desktop application through computer control.
 
-This disclosure describes the initial development through version 0.2.0,
-the subsequent public-repository preparation, and the AI-assisted 0.2.1
-Python 3.14 compatibility update. It does not claim that every
-line was reviewed by a human, that an independent engineer audited the code,
+This disclosure covers development through version 0.2.2, including public
+repository preparation, the 0.2.1 Python 3.14 compatibility update, and the
+0.2.2 tracing, display, persistence and draft-editing revisions. Parallel AI
+agents also wrote the new regression tests and documentation. It does not claim
+that every line was reviewed by a human, that an independent engineer audited
+the code,
 or that generated tests establish surveying or hydraulic accuracy. Tests and
 their expected results were also largely developed by AI agents.
 
@@ -27,6 +31,11 @@ format read-back checks and actual desktop interactions performed. It also
 identifies missing evidence: interactive Windows acceptance, target-GIS handoff,
 independent labeled geometry and measured operator productivity. Passing tests
 and attractive examples are narrower evidence than those missing checks.
+The 0.2.2 desktop exercises included fine projected terrain and a coarser USGS
+raster through an explicitly reprojected copy with a disclosed working grid.
+They establish observed workflow behavior, not independent feature accuracy.
+Portable/Wine results from 0.2.0 and hosted 0.2.1 tests remain labeled by version;
+they do not validate a 0.2.2 binary or native Windows interactive workflow.
 
 The [research notes](docs/RESEARCH.md) link primary sources and distinguish
 implemented methods from ideas for future work. Literature summaries and

@@ -24,50 +24,55 @@ exported elevations. Use an exaggeration of 1 when interpreting slope angles.
 
 ## Parameters
 
-Distances below are working raster pixels. On the supplied one-foot tiles,
-one pixel is one foot; the files are small enough to remain at native
-resolution. Other datasets can have different units and cell sizes.
-On rectangular cells, pixel-based controls represent different map distances
-along the two axes; review the warning and both cell dimensions.
+Trace distances use **working terrain cells**, with their physical size shown
+below the controls. Defaults scale with the loaded grid: a 1-foot cell gives a
+12-foot search radius and 3-foot target spacing; a 10-metre cell gives a
+120-metre radius and 30-metre spacing. These are cell-size multiples, not fixed
+feet or metres. Larger rasters may use a reduced working grid; check its
+resolution before tracing. On rectangular cells the physical distance differs
+by direction, so review both cell dimensions and the warning.
 
-| Parameter | Initial value | Meaning and adjustment |
+| Parameter | Initial value | Accepted range and adjustment |
 |---|---:|---|
-| Search radius | 30 px | Corridor distance around each anchor segment. Narrow it to avoid a neighboring feature; widen it when the intended curve is outside the search region. |
-| Terrain smoothing | 2 px | Scale used to suppress tiny terrain fluctuations before measuring shape. Increase for noisy terrain; reduce if narrow ditches or sharp crests disappear. |
-| Line smoothing | 4 px | Smooths the assisted line's XY shape within a bounded terrain-following neighborhood. Increase to reduce small stair steps; reduce around real anomalies or sharp bends. Zero disables this stage. |
-| Terrain attraction | 8 | Strength of terrain preference in the path cost. Increase if a path cuts across the feature; reduce if it detours to an unintended strong feature. |
-| Target spacing | 8 px | Starting arc-length spacing along the smoothed shape, redistributed between fixed guides. Closely placed anchors, meaningful bends and obstacles can require shorter edges. |
-| Bend tolerance | 1 px | Allowed plan-view chord deviation from the shaped route. Reduce to retain sharper detail; increase carefully to avoid unnecessary vertices. |
+| Search radius | 12 cells | At least 1 cell, with no application-defined upper cap. Search around the rough guide. Widen it to include a displaced channel or bend; narrow it when a neighboring feature competes. Very large regions take more time and memory. |
+| Terrain attraction | 8 | 0–1,000, dimensionless. Increase to favor strong terrain features more; reduce if the route detours toward the wrong feature. Zero removes terrain preference. |
+| Target spacing | 3 cells | 0.25–2,000 cells. Target distance between output vertices, independent of search radius. Smaller values retain more samples; larger values reduce vertex count. Bends, fixed connections and NoData can require shorter edges. |
+| Bend tolerance | 0.75 cells | 0–200 cells; this is a distance, not an angle. Maximum permitted chord deviation from the routed shape during simplification. Smaller values retain detail and may add short edges; larger values cut more corners. Zero keeps all route detail needed by this stage. |
+| Terrain smoothing, in Advanced | 0 cells | 0–50 cells. Blurs the terrain used to find a route. Increase only to suppress known small noise; it can erase narrow ditches and sharp crests. Zero disables this preprocessing. Source elevation samples stay unchanged. |
+| Line smoothing, in Advanced | 0 cells | 0–50 cells. Rounds assisted XY geometry within the terrain and obstacle constraints. Increase only when a reviewed route needs less stair stepping; it can soften real bends. Zero disables this stage. |
 
-These are starting defaults, not calibrated accuracy settings. Add an anchor
-before making large parameter changes. Treat a slope-break preview especially
-carefully where both crest and toe fit inside the corridor.
+Hover over a label or control for a short explanation. **Advanced** starts
+collapsed, and both smoothing controls start at zero. Presets provide starting
+points for **Balanced**, **Levee / embankment**, **Fine ditch / crest**,
+**Broad channel**, and **Noisy terrain**. All presets leave smoothing off except
+**Noisy terrain**, which explicitly sets both to 1 cell and opens Advanced.
+Presets do not classify the terrain or guarantee a good route.
 
-Presets provide starting points for **Balanced**, **Levee / embankment**,
-**Fine ditch / crest**, **Broad channel**, and **Noisy terrain**. They change the six trace controls;
-they do not classify the terrain or guarantee a better route.
+The default first pass is deliberately modest: place rough guides, preview at
+3-cell spacing with smoothing off, and inspect the intended crest or valley.
+If the feature lies outside the search area, widen the radius without changing
+spacing. If another feature wins, move or add a guide and narrow the search.
+Increase spacing only after the route is correct; dense vertices do not
+improve the source measurement accuracy. Inspect the reported actual
+**minimum, median and maximum spacing**, because the target is not a strict
+minimum. A wide search radius no longer changes the scale used to recognize
+the terrain feature or forces a coarser output step.
 
-Start with output spacing of **5–10 terrain cells**, as requested for this
-workflow: 5–10 feet on the supplied native one-foot tiles. The default is 8.
-This is a practical starting preference, not a universal rule or an accuracy
-claim. Larger reduced working cells imply larger physical spacing. Inspect the
-actual **minimum, median and maximum spacing** shown with the line's metrics;
-the target is not a strict minimum. Short-edge exceptions preserve fixed
-anchors, real bends and obstacle safety rather than silently moving guides or
-bridging NoData.
+Ordinary assisted guides express a rough route and may move during tracing,
+including the endpoints. Precise connections snapped to saved lines and local
+correction boundaries stay fixed. Turn off guide relaxation when you need all
+placed guides held in place. Manual lines retain their chosen corners. Source
+Z is sampled only after the output XY is determined.
 
-Terrain smoothing changes the guidance surface; line smoothing changes the
-assisted XY geometry; target spacing controls output sampling. All user guides
-remain fixed, manual lines retain their chosen corners, and final Z samples
-still come from the original DEM. Existing projects retain their saved
-parameters. Older lines without a line-smoothing setting reopen with that
-setting at zero; choose a current preset to opt into the new defaults.
+Existing project geometry and settings do not change when opened. Older lines
+without the guide-relaxation option retrace with fixed guides, and older lines
+without line smoothing retrace with it off. Choose a current preset or change
+the controls explicitly to adopt different behavior.
 
 For a levee, choose **Breakline → Ridge / embankment crest**, then the
-**Levee / embankment** preset. Place guides on the intended crown, including
-changes in direction. Review local dips and sharp anomalies before accepting;
-a smooth-looking crest must still follow the feature you intend. A crest and
-a bank toe are different tracing objectives.
+**Levee / embankment** preset. Place rough guides along the intended crown,
+including changes in direction. Review local dips and sharp anomalies before
+accepting. A crest and a bank toe are different tracing objectives.
 
 Exported line vertices and hydraulic mesh points are separate. HEC-RAS's
 **Near Spacing** controls computation points around a breakline; it is not
@@ -77,10 +82,18 @@ this editor's target vertex spacing. See the
 ## Review and editing
 
 The feature list controls visibility, selection, and which lines are exported.
-Double-click a name to rename a feature. Delete unwanted lines. Undo/redo applies to accepted editing
-operations. During anchor placement, Backspace removes the last anchor and
-Escape clears the current draft. Previewing is separate from accepting so a
-poor candidate can be discarded without changing saved features.
+Double-click a name to rename a feature. Delete unwanted lines. During draft
+guide placement, **Ctrl+Z / Ctrl+Y** undo and redo draft changes. Accepted
+editing operations have their own undo history; clearing or accepting a draft
+clears its temporary history.
+
+Click a numbered guide to select it, then drag to move it. **Delete** or
+**Remove point** removes the selected guide; **Backspace** removes the last.
+Turn on **Edit guide points** and click a rough-line edge to insert a guide,
+or hold **Shift** while clicking that edge during normal drawing. **Escape**
+clears the draft. These edits invalidate the old preview; preview again before
+accepting. Previewing is separate from accepting so a poor candidate can be
+discarded without changing saved features.
 
 For a hand correction, select the saved line and choose **Edit vertices**.
 Drag a vertex to move it; click one to select it. **Insert vertex** adds a
@@ -121,8 +134,22 @@ raster does not reveal hidden drainage under a road.
 **Settings** contains terrain/CRS details, display, editing, recovery and export
 preferences. The initial display uses Earth colors, the 1st–99th percentile
 elevation range, sun altitude 45 degrees, hillshade strength 0.65 and gamma 1.
-Choose a full or custom elevation range, another palette, multidirectional
-illumination, or display-only contours. Contour intervals use source Z units;
+Choose **RAS-inspired terrain** for teal, light green, dark green, yellow,
+orange, red, gray and white from low to high elevations. **Topographic** and
+**Spectral** add two further choices alongside Earth, Viridis, Grayscale,
+Ocean and Inferno. The RAS-inspired palette follows the requested color
+sequence; it is not a claim of an exact HEC-RAS color-table match.
+
+Set **Elevation range → Current view minimum–maximum** in Settings, or choose
+**View min–max** in the map toolbar, to remap colors to the valid terrain
+visible in the map as you pan or zoom. The toolbar also offers palette choices.
+The same elevation can have different colors in different views. NoData does
+not contribute to the range; a view without valid terrain falls back to the
+full terrain range. Choose full, percentile or custom range to keep a stable
+mapping while navigating. These settings affect Terrain and Elevation colors,
+never exported Z, trace parameters or accepted geometry.
+
+Also available are multidirectional illumination and display-only contours. Contour intervals use source Z units;
 the display limits the number of levels and points to avoid overwhelming the
 map. Contours are visualization aids derived from the working grid.
 
@@ -149,7 +176,9 @@ effect.
 Save a project to preserve features and settings. Projects refer to the terrain
 file using a relative path when possible, and do not embed the TIFF. Copy the
 terrain and project together while retaining their folder relationship.
-Projects are versioned JSON, not executable files.
+Projects are versioned JSON, not executable files. Application version 0.2.2
+continues to use project schema 1. Optional guide-relaxation and fixed-guide
+fields preserve draft behavior without recomputing any saved coordinates.
 If the source file is missing, the editor prompts to relink it and checks the
 saved CRS, extent, grid metadata and recorded content fingerprint before
 accepting the replacement. Keep the original file. Projects created before

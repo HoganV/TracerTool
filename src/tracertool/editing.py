@@ -152,6 +152,7 @@ def _finish(terrain, feature, coordinates, operation, details=None, *, retain_an
                provenance=history + [record], modified_at=timestamp)
     if not retain_anchors:
         out.pop('anchors', None)
+        out.pop('fixed_anchor_indices', None)
     try:
         return json.loads(json.dumps(out, allow_nan=False))
     except (ValueError, TypeError) as exc:
@@ -189,6 +190,8 @@ def reverse_feature(terrain, feature):
     source = _copy_feature(feature)
     if 'anchors' in source:
         source['anchors'] = list(reversed(source['anchors']))
+        if 'fixed_anchor_indices' in source:
+            source['fixed_anchor_indices'] = sorted(len(source['anchors']) - 1 - i for i in source['fixed_anchor_indices'])
     return _finish(terrain, source, list(reversed(source['coordinates'])), 'reverse_feature', retain_anchors=True)
 
 

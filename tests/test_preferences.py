@@ -16,8 +16,8 @@ from rasterio.crs import CRS
 from test_app import qt_app, terrain_path, window, accept_line, wait_idle
 from tracertool import desktop_actions
 from tracertool.app import MainWindow
-from tracertool.preferences import DEFAULTS, display_kwargs, normalize_preferences
-from tracertool.project import load_project
+from tracertool.preferences import DEFAULTS, PreferencesDialog, display_kwargs, normalize_preferences
+from tracertool.project import load_project, save_project
 from tracertool.terrain import Terrain
 
 
@@ -118,6 +118,37 @@ def test_custom_display_range_is_forwarded_without_affecting_export_defaults():
     options = display_kwargs(preferences)
     assert (options["low"], options["high"]) == (-10, 50)
     assert preferences["export"] == DEFAULTS["export"]
+
+
+@pytest.mark.parametrize('palette', ['ras', 'topographic', 'spectral', 'inferno'])
+def test_new_palette_and_view_stretch_preferences_round_trip(tmp_path, terrain_path, palette):
+    preferences = normalize_preferences({'display': {'palette': palette, 'stretch': 'view'}})
+    path = tmp_path / 'view-colors.tracer.json'
+    save_project(path, terrain_path, [], {'preferences': preferences})
+    restored = normalize_preferences(load_project(path)['settings']['preferences'])
+    assert restored == preferences
+    options = display_kwargs(restored)
+    assert options['palette'] == palette and options['stretch'] == 'view'
+    assert options['low'] is None and options['high'] is None
+
+
+def test_display_dialog_exposes_palettes_and_explains_dynamic_view_range(qt_app):
+    dialog = PreferencesDialog(normalize_preferences())
+    try:
+        palette = dialog.widgets[('display', 'palette')]
+        assert all(palette.findData(value) >= 0 for value in ('ras', 'topographic', 'spectral', 'inferno'))
+        stretch = dialog.widgets[('display', 'stretch')]
+        assert stretch.findData('view') >= 0
+        assert 'pan or zoom' in stretch.toolTip()
+        palette.setCurrentIndex(palette.findData('ras'))
+        stretch.setCurrentIndex(stretch.findData('view'))
+        dialog.accept()
+        assert dialog.preferences['display']['palette'] == 'ras'
+        assert dialog.preferences['display']['stretch'] == 'view'
+    finally:
+        dialog.close()
+        dialog.deleteLater()
+        qt_app.processEvents()
 
 
 def test_invalid_contour_settings_roll_back_active_and_default_preferences(window, tmp_path):

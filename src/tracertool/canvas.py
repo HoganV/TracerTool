@@ -19,6 +19,9 @@ class TerrainCanvas(QGraphicsView):
     vertexSelected = Signal(int)
     vertexInsertRequested = Signal(int, float, float)
     anchorMoved = Signal(int, float, float)
+    anchorSelected = Signal(int)
+    anchorInsertRequested = Signal(int, float, float)
+    viewChanged = Signal()
     segmentPointSelected = Signal(int)
     deleteRequested = Signal()
     finishRequested = Signal()
@@ -41,6 +44,8 @@ class TerrainCanvas(QGraphicsView):
         self.mode = "pan"
         self.overlays = []
         self.anchors = []
+        self.selected_anchor = None
+        self.guide_edit = False
         self.features = []
         self.selected = None
         self.preview = None
@@ -56,6 +61,20 @@ class TerrainCanvas(QGraphicsView):
         self.pan_last = None
         self.press_pos = None
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.horizontalScrollBar().valueChanged.connect(self.viewChanged)
+        self.verticalScrollBar().valueChanged.connect(self.viewChanged)
+
+    def visible_bounds(self):
+        """Half-open raster window covering the viewport, in row/column order."""
+        if self.terrain is None:
+            return None
+        rect = self.mapToScene(self.viewport().rect()).boundingRect()
+        return (max(0, math.floor(rect.top())), min(self.terrain.height, math.ceil(rect.bottom())),
+                max(0, math.floor(rect.left())), min(self.terrain.width, math.ceil(rect.right())))
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.viewChanged.emit()
 
     def set_terrain(self, terrain, rgb):
         self.scene().clear()
@@ -80,6 +99,7 @@ class TerrainCanvas(QGraphicsView):
     def fit(self):
         if self.terrain:
             self.fitInView(self.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
+            self.viewChanged.emit()
 
     def set_mode(self, mode):
         self.mode = mode
@@ -129,6 +149,19 @@ class TerrainCanvas(QGraphicsView):
         distance = np.linalg.norm(a + fraction[:, None] * delta - cursor, axis=1)
         i = int(np.argmin(distance))
         return i if distance[i] <= 16 else None
+
+    def nearest_guide_edge(self, point):
+        if len(self.anchors) < 2:
+            return None
+        positions = [self.mapFromScene(QPointF(c + .5, r + .5)) for r, c in self.anchors]
+        points = np.array([[p.x(), p.y()] for p in positions], dtype=float)
+        delta = np.diff(points, axis=0)
+        cursor = np.array([point.x(), point.y()])
+        fractions = np.clip(np.sum((cursor - points[:-1]) * delta, axis=1) /
+                            np.maximum(np.sum(delta * delta, axis=1), 1e-10), 0, 1)
+        distances = np.linalg.norm(points[:-1] + fractions[:, None] * delta - cursor, axis=1)
+        index = int(np.argmin(distances))
+        return index if distances[index] <= 16 else None
 
     def _path(self, coordinates, color, width=2, dashed=False, feature_id=None):
         if not coordinates or not self.terrain:
@@ -195,12 +228,12 @@ class TerrainCanvas(QGraphicsView):
             self._path(self.preview.coordinates, "#142229", 6)
             self._path(self.preview.coordinates, COLORS.get(self.preview_kind, "#ffffff"), 3, True)
         if len(self.anchors) > 1:
-            xy = [self.terrain.xy(*a) for a in self.anchors]
+            xy = [self.terrain.xy(*(self.drag_position if i == self.dragging_anchor and self.drag_position is not None else a)) for i, a in enumerate(self.anchors)]
             self._path(xy, "#eff6f4", 1, True)
         for i, (r, c) in enumerate(self.anchors):
             if self.dragging_anchor == i and self.drag_position is not None:
                 r, c = self.drag_position
-            self._point(r, c, "#ffffff", 5)
+            self._point(r, c, "#ff70b7" if i == self.selected_anchor else "#ffffff", 6 if i == self.selected_anchor else 5)
             label = self.scene().addSimpleText(str(i + 1), QFont("Sans Serif", 9))
             label.setBrush(QColor("white"))
             label.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
@@ -217,6 +250,7 @@ class TerrainCanvas(QGraphicsView):
         minimum = min(self.viewport().width() / self.terrain.width, self.viewport().height() / self.terrain.height) * .1
         if minimum < scale < max(80, minimum * 1000):
             self.scale(factor, factor)
+            self.viewChanged.emit()
         event.accept()
 
     def mousePressEvent(self, event):
@@ -245,6 +279,9 @@ class TerrainCanvas(QGraphicsView):
                     nearby.append((distance, i))
             if nearby:
                 self.dragging_anchor = min(nearby)[1]
+                self.selected_anchor = self.dragging_anchor
+                self.anchorSelected.emit(self.selected_anchor)
+                self.render_overlays()
         event.accept()
 
     def mouseMoveEvent(self, event):
@@ -297,7 +334,12 @@ class TerrainCanvas(QGraphicsView):
             elif self.mode == "edit":
                 self._select(point)
             elif self.mode != "pan":
-                self.anchorAdded.emit(p.y() - 0.5, p.x() - 0.5)
+                if self.guide_edit or event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
+                    index = self.nearest_guide_edge(point)
+                    if index is not None:
+                        self.anchorInsertRequested.emit(index, p.y() - .5, p.x() - .5)
+                else:
+                    self.anchorAdded.emit(p.y() - 0.5, p.x() - 0.5)
         event.accept()
 
     def mouseDoubleClickEvent(self, event):
@@ -308,6 +350,11 @@ class TerrainCanvas(QGraphicsView):
                 p = self.mapToScene(point)
                 self.dragging_vertex = None
                 self.vertexInsertRequested.emit(index, p.y() - .5, p.x() - .5)
+        elif self.mode not in {'pan', 'edit', 'insert', 'segment'} and not self.locked and self.terrain:
+            # The second press of a quick click-then-drag is delivered as a
+            # double-click. Pick up the guide just inserted/selected on the
+            # first click instead of adding another point on release.
+            self.mousePressEvent(event)
         event.accept()
 
     def _select(self, point):

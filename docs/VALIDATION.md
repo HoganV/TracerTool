@@ -1,5 +1,84 @@
 # Validation record
 
+## 0.2.2 — terrain display and draft tracing, 2026-10-16
+
+The final Linux source suite passed **430 tests in 43.48 seconds**, using Qt's
+offscreen platform. The application startup smoke test and installed-dependency
+consistency check also passed. Real mouse/keyboard desktop exercises are
+recorded separately below; the automated run alone does not establish an
+interactive workflow.
+
+The focused terrain/tracing coverage includes 33 feedback cases within 57
+focused tests. On generated curved valleys, ridges and bank slope breaks,
+rough guides offset by eight cells produce mean feature error below 0.5 cells
+and maximum error at most 1.1 cells. These checks run at one-foot and 30-metre
+horizontal cell sizes, preserve source Z and validate all final segments.
+They also cover flat/ambiguous terrain, isolated pits, true downhill pit
+termination, fixed connections and NoData barriers. Synthetic error is measured
+against the generated feature, not independently surveyed terrain.
+
+Wide-search cases range from 12 to 2,501 cells and an extreme finite radius of
+1e200 without changing the 3-cell spacing target or allocating beyond raster
+bounds. Tests check terrain-feature retention, actual spacing and NoData-safe
+chords. Project and recovery coverage checks legacy missing fields, relaxed
+and fixed guides, invalid booleans/indices, moved sources and unchanged XYZ in
+project/GeoJSON/shapefile round trips. Shapefile numeric field capacity remains
+a format limit with an actionable export error.
+
+Interaction regressions cover view rendering without a progress-bar/layout
+refresh loop, automatic previews queued after a display render, invalid custom
+color ranges leaving prior settings intact, display-only palette/range changes
+preserving an unaccepted preview, and snapped-guide indices being preserved,
+reversed or invalidated as appropriate. A rapid insertion followed
+by a drag no longer creates a duplicate guide through a double-click event.
+
+### Native Linux computer-control checks
+
+The real Linux Qt application was operated with mouse and keyboard on private
+one-foot projected terrain and the additional lower-resolution geographic
+USGS terrain. The geographic source was viewed directly, then used to create
+an explicit projected copy with 30-metre output cells. Loading that larger copy
+used the disclosed reduced working grid at approximately **47.4422 metres per
+cell**. The source input was retained. A 3-cell spacing setting on that working
+grid represents about 142.3 metres, not 3 metres or the copy's 30-metre cells.
+
+The exercised workflows included RAS-inspired colors and current-view min/max,
+zoom and pan, rough-guide insertion/move/deletion, Ctrl+Z/Ctrl+Y, preview and
+acceptance, project save/reopen and shapefile export. Changing the palette and
+elevation range retained the unaccepted preview with Apply enabled. Wrapped
+parameter help was inspected visibly. Repeated display changes and guide edits
+were used to check the interaction fixes above. Private source
+filenames and screenshots remain outside the public documentation and source.
+
+The final repeated coarse-terrain trace used a **500-cell search radius** with
+**3-cell target spacing** and five rough guides. It produced **136 vertices**
+over **19,036.8 metres**, with measured spacing **142.0 metres median,
+131.5 minimum and 142.0 maximum**. This demonstrates that the wider search does
+not force coarser output spacing in that exercised case. The final-code line
+was previewed, accepted, saved, exported and reopened.
+
+The final-code one-foot trace produced **466 vertices over 1,305.2 feet**,
+with spacing **3.0 feet median and range 0.8–3.0 feet**, using 12-cell radius,
+3-cell spacing and both smoothing settings zero. It was accepted, saved and
+exported after the display changes above. Shorter edges remain possible around
+necessary bends; target spacing is not a promised minimum.
+
+PyShp read-back matched each project's exported XYZ exactly.
+Every Z matched sampling from the loaded source raster within 1e-8, and every
+final segment was validated against NoData on both fine and coarse terrain.
+For the coarse project, that source raster is the explicitly reprojected copy;
+its resampled values are not claimed to be identical to the geographic source.
+These are observed workflow and geometry measurements. No independently
+labeled channel or crest was available to establish real-world accuracy.
+
+### Limits for this revision
+
+No 0.2.2 portable package, frozen-resource smoke test or interactive native
+Windows acceptance was performed. The 0.2.1 hosted Windows/Linux checks and
+0.2.0 portable/Wine evidence below apply only to those historical snapshots.
+QGIS/ArcGIS Pro acceptance, independent terrain accuracy, hydrologic validation
+and measured operator productivity remain open gates.
+
 ## 0.2.1 — Windows Python 3.14 installation
 
 The [Python 3.14 compatibility workflow](https://github.com/HoganV/TracerTool/actions/runs/38773225094)
@@ -24,7 +103,7 @@ was built or published. Historical 0.2.0 portable evidence below does not
 establish a Python 3.14 frozen build. Terrain algorithms and project schema
 are unchanged in this patch.
 
-## 0.2.0 desktop baseline
+## Historical 0.2.0 desktop baseline
 
 **Version 0.2.0 desktop snapshot:** the source suite passed 287 tests on Linux and
 287 tests with Windows Python/Qt under Wine. The line-quality comparisons and
@@ -37,7 +116,7 @@ i5-12600K. Windows checks use official Windows CPython 3.13.16, Qt 6.9.3 and
 Wine 11 on this same host. These are functional checks and a reproducible
 processing benchmark, not independent validation of line accuracy.
 
-## Public repository preparation
+## Historical 0.2.0 public repository preparation
 
 The subsequent public-source preparation passed **311 tests on Linux** in
 32.96 seconds, and **303 tests with 8 skips under Windows Python/Qt in Wine**
@@ -60,7 +139,7 @@ uses a separate sanitized history as described in [PUBLISHING.md](PUBLISHING.md)
 The README image is a real Qt capture of the generated synthetic fixture. It
 contains no private terrain and makes no positional-accuracy claim.
 
-## First GitHub-hosted source verification
+## Historical 0.2.0 first GitHub-hosted source verification
 
 The [first public workflow run](https://github.com/HoganV/TracerTool/actions/runs/38771382982)
 passed on 2026-10-15 for source commit
@@ -81,7 +160,7 @@ These source tests used Qt's offscreen mode. Windows runner success is evidence
 of native Windows automated execution, not interactive desktop acceptance or
 a clean extracted Windows portable-package test. Those gates remain open.
 
-## Evidence categories
+## Historical 0.2.0 evidence categories
 
 | Environment/check | Result and boundary |
 |---|---|
@@ -100,7 +179,7 @@ Release source hashes and dependency versions are recorded in each bundle's
 artifacts remain in ignored build/artifact directories rather than the public
 source tree.
 
-## Final portable-package checks
+## Historical 0.2.0 final portable-package checks
 
 Both final 0.2.0 packages were built from the same application-source SHA-256
 map, matching the tested source. Each archive passed its SHA-256 and ZIP CRC
@@ -125,7 +204,7 @@ The old `dist/TracerTool` application was preserved.
 These are verified local builds. The actual Windows checks ran under Wine,
 and clean Windows/target-GIS acceptance remains open.
 
-## Native mouse/keyboard acceptance
+## Historical 0.2.0 native mouse/keyboard acceptance
 
 The integrator controlled the real application through mouse and keyboard in
 a separate Xephyr X11 desktop, using the supplied TIFFs. The main desktop was
@@ -170,7 +249,7 @@ was visually clean. Cancel restored the original 176-vertex line. The native
 log was clean; evidence is under `artifacts/quality/frozen-native-start.png`,
 `frozen-native-adjusted-preview.png` and `frozen-native-cancel.png`.
 
-## Final review corrections
+## Historical 0.2.0 final review corrections
 
 - Converted vector exports preserve source metrics separately and recompute
   output metrics. GeoJSON metadata now states the actual output coordinates;
@@ -186,7 +265,7 @@ log was clean; evidence is under `artifacts/quality/frozen-native-start.png`,
   default styling are checked across all tools, so focusing a control cannot
   silently scroll the panel sideways; export-dialog return stays unclipped.
 
-## Reference-input benchmark
+## Historical 0.2.0 reference-input benchmark
 
 Refreshed 0.2.0 benchmark: `python scripts/benchmark.py`, using terrain smoothing
 2 cells, line smoothing 4 cells and target spacing 8 cells. The six local
@@ -212,7 +291,7 @@ this generated file is excluded from source control. No hand-digitized
 reference lines were supplied, so positional accuracy and operator time
 savings remain unmeasured.
 
-## Linux baseline and packaging checks
+## Historical Linux baseline and packaging checks
 
 A Linux PyInstaller build successfully ran the frozen application's smoke test:
 Qt initialization/window rendering, generated GeoTIFF creation/loading, terrain
@@ -245,7 +324,7 @@ the corresponding system package. The initial offscreen smoke result did not
 depend on it. At that initial baseline the CI workflow had not run remotely;
 the later successful hosted source run is recorded separately above.
 
-## Windows compatibility-layer build and tests
+## Historical 0.2.0 Windows compatibility-layer build and tests
 
 The Windows executable was built locally without uploading code or terrain.
 The isolated environment runs official Windows CPython 3.13.16 and Windows

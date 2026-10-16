@@ -20,12 +20,28 @@ from .terrain import Terrain
 
 @dataclass
 class TraceParams:
-    corridor: float = 30.
-    smoothing: float = 2.0
+    corridor: float = 12.
+    smoothing: float = 0.
     terrain_weight: float = 8.
-    spacing: float = 8.
-    simplify: float = 1.0
-    line_smoothing: float = 4.
+    spacing: float = 3.
+    simplify: float = .75
+    line_smoothing: float = 0.
+    relax_anchors: bool = True
+
+
+def default_params(terrain: Terrain, kind: str = 'stream') -> TraceParams:
+    """Conservative new-draft settings expressed in *working cells*.
+
+    The UI converts these distances with ``terrain.resolution``: a 10-metre
+    grid gets a 120-metre search radius and 30-metre target spacing, whereas a
+    1-metre grid gets 12 and 3 metres. Neither conversion implies accuracy.
+    Attraction is dimensionless; smoothing is an explicit opt-in.
+    """
+    if kind not in {'ridge', 'stream', 'slope_break', 'manual', 'downstream'}:
+        raise ValueError('Choose ridge, stream, slope_break, manual, or downstream tracing.')
+    if not math.isfinite(terrain.resolution) or terrain.resolution <= 0:
+        raise ValueError('The working grid must have a finite positive cell size.')
+    return TraceParams()
 
 
 @dataclass
@@ -35,6 +51,7 @@ class TraceResult:
     metrics: dict = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
     anchors: list[list[float]] = field(default_factory=list)
+    fixed_anchor_indices: list[int] = field(default_factory=list)
 
 
 class TraceCancelled(RuntimeError):
@@ -53,8 +70,8 @@ def _validate(terrain, params):
         value = getattr(params, name)
         if not isinstance(value, (int, float)) or not math.isfinite(value):
             raise ValueError(f"{name.replace('_', ' ').title()} must be a finite number.")
-    if not 1 <= params.corridor <= 2000:
-        raise ValueError("Corridor must be between 1 and 2,000 working pixels.")
+    if params.corridor < 1:
+        raise ValueError("Corridor must be at least 1 working pixel.")
     if not 0 <= params.smoothing <= 50:
         raise ValueError("Smoothing must be between 0 and 50 working pixels.")
     if not 0 <= params.terrain_weight <= 1000:
@@ -65,12 +82,14 @@ def _validate(terrain, params):
         raise ValueError("Line smoothing must be between 0 and 50 working pixels.")
     if not 0 <= params.simplify <= 200:
         raise ValueError("Simplification must be between 0 and 200 working pixels.")
+    if not isinstance(params.relax_anchors, bool):
+        raise ValueError('Relax anchors must be true or false.')
 
 
 def _anchor(terrain, point):
     if len(point) != 2 or not all(math.isfinite(float(v)) for v in point):
         raise ValueError("Each anchor must contain a finite row and column.")
-    # Clicks select containing pixels, whose native centers remain fixed.
+    # Clicks select containing pixels; assisted guides begin at cell centers.
     row, col = (math.floor(float(v) + .5) for v in point)
     if not (0 <= row < terrain.height and 0 <= col < terrain.width):
         raise ValueError("An anchor is outside the terrain. Click inside the raster.")
@@ -100,7 +119,10 @@ def _cost(terrain, bounds, kind, params, direction, cancel=None, guidance_mask=N
     _check_cancel(cancel)
     r0, r1, c0, c1 = bounds
     # Read a halo so the working window does not create artificial landforms.
-    broad_sigma = max(2.5, params.smoothing * 4, params.corridor * .5 if kind == 'stream' else 0.)
+    # Feature detection and output sampling are independent of search radius.
+    # The broader stream descriptor recognizes opposing banks of flat floors;
+    # widening the search corridor must not blur away narrow terrain features.
+    broad_sigma = max(12. if kind == 'stream' else 6., params.smoothing * 4)
     halo = max(6, math.ceil(broad_sigma * 4))
     hr0, hr1 = max(0, r0 - halo), min(terrain.height, r1 + halo)
     hc0, hc1 = max(0, c0 - halo), min(terrain.width, c1 + halo)
@@ -127,9 +149,9 @@ def _cost(terrain, bounds, kind, params, direction, cancel=None, guidance_mask=N
         # anchors handle tight bends. Signed relief separates crest from trough.
         # On a wide flat channel, tiny DEM texture and shoreline concavity
         # must not replace the broad opposing-bank signal. Derive stream
-        # centering from corridor-scale relief, while ridge tops use the finer
-        # terrain smoothing scale so narrow crests remain resolved.
-        gy, gx = np.gradient(broad if kind == 'stream' else smooth)
+        # centering from an independent relief scale; ridge tops use a finer
+        # relief scale so narrow crests remain resolved.
+        gy, gx = np.gradient(broad)
         dr, dc = direction
         length = max(math.hypot(dr, dc), 1e-12)
         cross_slope = np.abs((-dc * gy + dr * gx) / length)[crop]
@@ -259,7 +281,7 @@ def _resample(points, spacing, mask=None, tolerance=None):
     Sampling no longer restarts at every input corner. Where a proposed chord
     crosses NoData or cuts a real bend beyond tolerance, retain the necessary
     reference bend. Such safety exceptions may have closer station spacing.
-    Callers split at hard user anchors so every original anchor remains exact.
+    Callers split at hard user anchors so every explicit fixed anchor remains exact.
     """
     points, stations = _arc_data(points)
     if len(points) < 2:
@@ -365,13 +387,91 @@ def _smooth_vectors(path, mask, cost, radius, terrain_weight, cancel=None):
     return current.tolist()
 
 
-def _route(terrain, a, b, kind, params, cancel=None):
+def _relax_guides(terrain, points, kind, params, fixed, cancel=None):
+    """Move rough guides across their local direction toward feature evidence.
+
+    Search cross-sections retain the user's along-line coverage and point
+    order. Every displacement must itself avoid NoData. Short neighboring
+    segments and tight reversals limit movement so a broad corridor cannot
+    collapse an intentional bend or swap neighboring guides.
+    """
+    output = list(points)
+    if not params.relax_anchors or params.terrain_weight == 0:
+        return output
+    grid_radius = math.hypot(terrain.height, terrain.width)
+    for index, point in enumerate(points):
+        _check_cancel(cancel)
+        if index in fixed:
+            continue
+        vectors = []
+        if index:
+            vectors.append(np.asarray(point, float) - points[index - 1])
+        if index + 1 < len(points):
+            vectors.append(np.asarray(points[index + 1], float) - point)
+        lengths = [float(np.linalg.norm(v)) for v in vectors]
+        units = [v / length for v, length in zip(vectors, lengths)]
+        if len(units) == 2 and float(units[0] @ units[1]) < -.5:
+            continue
+        tangent = np.sum(units, axis=0)
+        tangent /= np.linalg.norm(tangent)
+        normal = np.array([-tangent[1], tangent[0]])
+        radius = min(params.corridor, grid_radius, min(lengths) * .45)
+        offsets = np.linspace(-radius, radius, max(2, math.ceil(radius * 2)) + 1)
+        candidates = np.unique(np.rint(np.asarray(point) + offsets[:, None] * normal).astype(int), axis=0)
+        displacement = np.linalg.norm(candidates - point, axis=1)
+        keep = ((displacement <= radius + 1e-8) & (candidates[:, 0] >= 0) &
+                (candidates[:, 0] < terrain.height) & (candidates[:, 1] >= 0) &
+                (candidates[:, 1] < terrain.width))
+        candidates = candidates[keep]
+        candidates = np.asarray([p for p in candidates if terrain.valid[tuple(p)] and
+                                 _segment_valid(terrain.valid, point, p)], dtype=int)
+        if not len(candidates):
+            continue
+        # Include the original cell explicitly, even for an oblique cross-section.
+        candidates = np.unique(np.vstack((point, candidates)), axis=0)
+        r0, c0 = np.maximum(candidates.min(axis=0) - 6, 0)
+        r1, c1 = np.minimum(candidates.max(axis=0) + 7, (terrain.height, terrain.width))
+        bounds = (int(r0), int(r1), int(c0), int(c1))
+        cost = _cost(terrain, bounds, kind, params, tangent, cancel=cancel)
+        local_mask = terrain.valid[r0:r1, c0:c1]
+        cost[~local_mask] = np.inf
+        # Three-cell longitudinal support avoids moving a guide onto an isolated
+        # single-cell pit or spike at the expense of the continuing landform.
+        probes = candidates[:, None, :] + np.array([-1., 0., 1.])[None, :, None] * tangent
+        probes -= np.array([r0, c0])
+        support = ndimage.map_coordinates(cost, probes.reshape(-1, 2).T,
+                                          order=0, mode='constant', cval=np.inf).reshape(-1, 3)
+        score = np.mean(support, axis=1)
+        distance = np.linalg.norm(candidates - point, axis=1)
+        score += .4 * np.square(distance / max(radius, 1.)) + .01 * distance
+        original = int(np.flatnonzero(np.all(candidates == point, axis=1))[0])
+        # No reliable terrain evidence (flat ground, edge, or tiny improvement):
+        # keep the rough guide instead of arbitrarily choosing a nearby cell.
+        selected = int(np.argmin(score))
+        if math.isfinite(score[original]) and score[selected] < score[original] - .1:
+            # A favorable monotonic trend is not a located crest, trough, or
+            # bank. Require supporting terrain on both sides of the proposed
+            # guide. Otherwise a broad descriptor can push guides across flat
+            # ground away from an isolated pit, or pick an arbitrary shoulder
+            # in a smooth parabola when slope-break mode has no discrete edge.
+            cross = candidates[selected] + np.array([-4., 4.])[:, None] * normal
+            probes = cross[:, None, :] + np.array([-1., 0., 1.])[None, :, None] * tangent
+            probes -= np.array([r0, c0])
+            sides = ndimage.map_coordinates(cost, probes.reshape(-1, 2).T,
+                                            order=0, mode='constant', cval=np.inf).reshape(2, 3).mean(axis=1)
+            if np.isfinite(sides).all() and np.all(sides > support[selected].mean() + .01):
+                output[index] = tuple(int(v) for v in candidates[selected])
+    return output
+
+
+def _route(terrain, a, b, kind, params, cancel=None, guide=None, resample=True):
     _check_cancel(cancel)
-    margin = math.ceil(params.corridor) + 1
-    r0, r1 = max(0, min(a[0], b[0]) - margin), min(terrain.height, max(a[0], b[0]) + margin + 1)
-    c0, c1 = max(0, min(a[1], b[1]) - margin), min(terrain.width, max(a[1], b[1]) + margin + 1)
+    guide_a, guide_b = guide if guide is not None else (a, b)
+    margin = math.ceil(min(params.corridor, max(terrain.height, terrain.width))) + 1
+    r0, r1 = max(0, min(guide_a[0], guide_b[0]) - margin), min(terrain.height, max(guide_a[0], guide_b[0]) + margin + 1)
+    c0, c1 = max(0, min(guide_a[1], guide_b[1]) - margin), min(terrain.width, max(guide_a[1], guide_b[1]) + margin + 1)
     rr, cc = np.ogrid[r0:r1, c0:c1]
-    distance = _distance_to_segment(rr, cc, a, b)
+    distance = _distance_to_segment(rr, cc, guide_a, guide_b)
     mask = terrain.valid[r0:r1, c0:c1] & (distance <= params.corridor + 1e-8)
     cost = _cost(terrain, (r0, r1, c0, c1), kind, params, (b[0] - a[0], b[1] - a[1]), cancel=cancel, guidance_mask=mask)
     # A weak guidance term resolves ties on flat ground without overpowering
@@ -410,7 +510,7 @@ def _route(terrain, a, b, kind, params, cancel=None):
     else:
         shaped = _simplify(path, params.simplify, mask)
     _check_cancel(cancel)
-    spaced = _resample(shaped, params.spacing, mask=mask, tolerance=params.simplify)
+    spaced = _resample(shaped, params.spacing, mask=mask, tolerance=params.simplify) if resample else shaped
     # Local-mask validation also guarantees the simplified route stays inside
     # the hard corridor, including between vertices.
     if not all(_segment_valid(mask, p, q) for p, q in zip(spaced[:-1], spaced[1:])):
@@ -474,49 +574,93 @@ def _guide_warning(indices):
     return f'Guide anchor(s) {labels} create turns sharper than 90°. Check that these fixed guides lie on the intended crest or channel; they have not been moved automatically.'
 
 
-def trace(terrain: Terrain, anchors, kind: str, params: TraceParams | None = None, cancel=None) -> TraceResult:
-    """Trace through anchors in click order, retaining manual subcell positions.
+def trace(terrain: Terrain, anchors, kind: str, params: TraceParams | None = None,
+          cancel=None, fixed_anchor_indices=None) -> TraceResult:
+    """Follow rough guides in click order, retaining manual subcell positions.
 
     Spacing targets evenly distributed arc-length stations in working pixels;
-    hard anchors, genuine bends, and obstacle safety can need closer vertices. It is not a hydrologic integration step. Smoothing changes
+    hard anchors, genuine bends, and obstacle safety can need closer vertices.
+    Assisted guides may move laterally unless ``relax_anchors`` is false or
+    their original zero-based index is in ``fixed_anchor_indices``. It is not
+    a hydrologic integration step. Smoothing changes
     terrain guidance, never exported source elevations. Stream routes can climb
     and must be reviewed; explicit warnings report this condition.
     """
     _check_cancel(cancel)
-    params = params or TraceParams()
+    params = params or default_params(terrain, kind)
     _validate(terrain, params)
     if kind not in {'ridge', 'stream', 'slope_break', 'manual'}:
         raise ValueError("Choose ridge, stream, slope_break, or manual tracing.")
     if len(anchors) < 2:
         raise ValueError("Add at least two anchors to trace a line.")
+    fixed = set()
+    if fixed_anchor_indices is not None:
+        for index in fixed_anchor_indices:
+            if isinstance(index, bool) or not isinstance(index, (int, np.integer)) or not 0 <= index < len(anchors):
+                raise ValueError('Fixed anchor indices must identify existing guides using zero-based integers.')
+            fixed.add(int(index))
     validated = [_anchor(terrain, p) for p in anchors]
     # Manual geometry follows the user's actual positions, including distinct
     # subcell anchors. Terrain-assisted paths continue to use cell centers.
-    points = [(float(p[0]), float(p[1])) for p in anchors] if kind == 'manual' else validated
-    points = [p for i, p in enumerate(points) if i == 0 or p != points[i - 1]]
+    source = [(float(p[0]), float(p[1])) for p in anchors] if kind == 'manual' else validated
+    points, mapped_fixed = [], set()
+    for index, point in enumerate(source):
+        if not points or point != points[-1]:
+            points.append(point)
+        if index in fixed:
+            mapped_fixed.add(len(points) - 1)
+    fixed = mapped_fixed
     if len(points) < 2:
         location = 'map position' if kind == 'manual' else 'terrain pixel'
         raise ValueError(f'Place the second anchor in a different {location}.')
+    relaxed = kind != 'manual' and params.relax_anchors
+    routed_points = _relax_guides(terrain, points, kind, params, fixed, cancel) if relaxed else points
     cells = []
     anchor_indices = [0]
-    for a, b in zip(points[:-1], points[1:]):
+    for index, (a, b) in enumerate(zip(routed_points[:-1], routed_points[1:])):
         _check_cancel(cancel)
         if kind == 'manual':
             if not _segment_valid(terrain.valid, a, b):
                 raise ValueError("A manual segment crosses NoData. Add an anchor around the gap.")
             part = _resample([a, b], params.spacing)
         else:
-            part = _route(terrain, a, b, kind, params, cancel=cancel)
+            part = _route(terrain, a, b, kind, params, cancel=cancel,
+                          guide=(points[index], points[index + 1]), resample=not relaxed)
         cells.extend(part if not cells else part[1:])
         anchor_indices.append(len(cells) - 1)
+    sharp_guides = _sharp_guide_indices([terrain.xy(r, c) for r, c in cells], anchor_indices)
+    if relaxed:
+        # Preserve the complete original corridor during cross-guide sampling.
+        # Only explicit fixed guides restart spacing; rough guides are shape
+        # references, so their count and search radius do not dictate density.
+        mask = np.zeros_like(terrain.valid)
+        margin = math.ceil(min(params.corridor, max(terrain.height, terrain.width))) + 1
+        for a, b in zip(points[:-1], points[1:]):
+            r0, r1 = max(0, min(a[0], b[0]) - margin), min(terrain.height, max(a[0], b[0]) + margin + 1)
+            c0, c1 = max(0, min(a[1], b[1]) - margin), min(terrain.width, max(a[1], b[1]) + margin + 1)
+            rr, cc = np.ogrid[r0:r1, c0:c1]
+            mask[r0:r1, c0:c1] |= _distance_to_segment(rr, cc, a, b) <= params.corridor + 1e-8
+        mask &= terrain.valid
+        boundaries = sorted({0, len(cells) - 1} | {anchor_indices[i] for i in fixed})
+        sampled = []
+        for start, stop in zip(boundaries[:-1], boundaries[1:]):
+            _check_cancel(cancel)
+            part = _resample(cells[start:stop + 1], params.spacing, mask=mask, tolerance=params.simplify)
+            sampled.extend(part if not sampled else part[1:])
+        cells = sampled
     _check_cancel(cancel)
     result = _result(terrain, cells, kind, params)
     _check_cancel(cancel)
     result.anchors = [list(terrain.xy(r, c)) for r, c in points]
-    sharp_guides = _sharp_guide_indices(result.coordinates, anchor_indices)
+    result.fixed_anchor_indices = sorted(fixed)
     result.metrics['sharp_guide_indices'] = sharp_guides
+    movement = np.linalg.norm(np.asarray(routed_points) - points, axis=1)
+    result.metrics['relaxed_guide_count'] = int(np.count_nonzero(movement > 1e-8))
+    result.metrics['guide_displacement_max_pixels'] = float(movement.max())
+    result.metrics['fixed_anchor_indices'] = sorted(fixed) if relaxed else list(range(len(points)))
     if sharp_guides and kind != 'manual':
-        result.warnings.append(_guide_warning(sharp_guides))
+        result.warnings.append(_guide_warning(sharp_guides) if not relaxed else
+                               'The rough guide creates a turn sharper than 90°. Review guide order and the intended terrain feature.')
     return result
 
 
@@ -528,7 +672,7 @@ def trace_downstream(terrain: Terrain, start, params: TraceParams | None = None,
     preferable where drainage is ambiguous.
     """
     _check_cancel(cancel)
-    params = params or TraceParams()
+    params = params or default_params(terrain, 'downstream')
     _validate(terrain, params)
     current = _anchor(terrain, start)
     z = ndimage.gaussian_filter(terrain.surface(), params.smoothing) if params.smoothing else terrain.surface()

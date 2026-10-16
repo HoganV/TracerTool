@@ -32,7 +32,8 @@ def test_generated_demo_is_deterministic_and_portable(tmp_path):
     assert document["terrain_path"] == first_raster.name
     assert document["settings"]["demo"]["synthetic"] is True
     assert {f["kind"] for f in document["features"]} == {"ridge", "stream"}
-    assert all(f["parameters"]["spacing"] == TraceParams().spacing for f in document["features"])
+    assert all(f["parameters"]["spacing"] == 8 for f in document["features"])
+    assert all(f["parameters"]["line_smoothing"] == 4 for f in document["features"])
 
 
 def test_demo_native_elevations_geometry_and_nodata(tmp_path):

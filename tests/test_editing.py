@@ -189,8 +189,8 @@ def test_edit_recomputes_spacing_and_discards_obsolete_guide_warning(terrain):
     assert metrics['spacing_min'] == pytest.approx(edges.min())
     assert metrics['spacing_median'] == pytest.approx(np.median(edges))
     assert metrics['spacing_max_pixels'] == pytest.approx(pixels.max())
-    assert metrics['spacing_exception_count'] == int(np.count_nonzero(pixels < 5))
-    assert metrics['spacing_long_edge_count'] == int(np.count_nonzero(pixels > 8))
+    assert metrics['spacing_exception_count'] == int(np.count_nonzero(pixels < original["parameters"]["spacing"] * .625))
+    assert metrics['spacing_long_edge_count'] == int(np.count_nonzero(pixels > original["parameters"]["spacing"]))
     assert 'sharp_guide_indices' not in metrics
     assert not any(w.startswith('Guide anchor(s)') for w in changed['warnings'])
 
@@ -209,3 +209,21 @@ def test_zero_reconstructed_guide_tolerance_retains_original_bends(terrain):
     original = feature(terrain, ((10, 10), (11, 10.2), (12, 10), (13, 10.2), (14, 10)))
     guides = reconstruct_anchors(terrain, original, tolerance_pixels=0)
     assert guides == [p[:2] for p in original['coordinates']]
+
+
+def test_editing_snapped_features_clears_or_remaps_guide_locks(terrain, tmp_path):
+    original = feature(terrain)
+    original['fixed_anchor_indices'] = [0, 1]
+    reversed_line = reverse_feature(terrain, original)
+    assert reversed_line['fixed_anchor_indices'] == [2, 3]
+    assert reverse_feature(terrain, reversed_line)['fixed_anchor_indices'] == [0, 1]
+    changed = [move_vertex(terrain, original, 1, terrain.xy(20, 12)),
+               insert_vertex(terrain, original, 1, terrain.xy(25, 10)),
+               delete_vertex(terrain, original, 1),
+               *split_feature(terrain, original, 1)]
+    for index, updated in enumerate(changed):
+        assert 'anchors' not in updated and 'fixed_anchor_indices' not in updated
+        path = tmp_path / f'edited-{index}.tracer.json'
+        save_project(path, terrain.path, [updated], {})
+        assert load_project(path)['features'] == [updated]
+    assert original['fixed_anchor_indices'] == [0, 1]
