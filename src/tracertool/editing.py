@@ -13,6 +13,7 @@ import json
 import math
 from uuid import uuid4
 
+from .project import protected_junctions, validate_engine_metadata
 from .tracing import (TraceParams, _resample, _simplify, _sharp_guide_indices,
                       _guide_warning, validate_segments)
 
@@ -37,6 +38,7 @@ def _copy_feature(feature):
     if out.get('kind') not in {'ridge', 'stream', 'slope_break', 'manual'}:
         raise ValueError('The line has an unsupported tracing kind.')
     _coordinates(out.get('coordinates'))
+    validate_engine_metadata(out)
     return out
 
 
@@ -77,6 +79,12 @@ def _point(terrain, xy):
 def _finish(terrain, feature, coordinates, operation, details=None, *, retain_anchors=False):
     out = _copy_feature(feature)
     coordinates = _coordinates(coordinates)
+    locks = protected_junctions(out)
+    vertices = {tuple(p[:2]) for p in coordinates}
+    if any(tuple(p) not in vertices for p in locks):
+        raise ValueError('This edit would remove a protected junction. Keep its exact native XY vertex.')
+    if locks or 'protected_junctions' in out:
+        out['protected_junctions'] = locks
     validate_segments(terrain, coordinates)
     distances = [math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in zip(coordinates[:-1], coordinates[1:])]
     changes = [b[2] - a[2] for a, b in zip(coordinates[:-1], coordinates[1:])]
@@ -120,6 +128,26 @@ def _finish(terrain, feature, coordinates, operation, details=None, *, retain_an
         'spacing_long_edge_count': sum(edge > target_spacing * (1 + 1e-8) for edge in pixel_edges),
         'kind': out['kind'], 'geometry_edited': True, 'manually_edited': True, 'elevation_mismatch_vertices': mismatch,
     }
+    old_metrics = out.get('metrics', {})
+    if not isinstance(old_metrics, dict):
+        raise ValueError('The line has invalid trace metrics.')
+    if old_metrics.get('engine') or out.get('engine'):
+        if 'engine_evidence' not in out:
+            out['engine_evidence'] = {
+                'engine': out.get('engine', old_metrics.get('engine', 'legacy')),
+                'engine_version': out.get('engine_version', old_metrics.get('engine_version', 1)),
+                'metrics': deepcopy(old_metrics), 'warnings': deepcopy(out.get('warnings', [])),
+            }
+        out['engine_evidence']['stale'] = True
+        out['engine_evidence']['stale_reason'] = operation
+        # Geometry QA below is current. Solver evidence remains inspectable,
+        # explicitly stale, with the complete original metrics in its own record.
+        for key in ('engine', 'engine_version', 'diagnostics', 'analysis_resolution',
+                    'effective_config', 'confidence', 'domain_truncated'):
+            if key in old_metrics:
+                metrics[key] = deepcopy(old_metrics[key])
+        metrics['status'] = 'stale'
+        metrics['evidence_stale'] = True
     if retain_anchors and out.get('anchors'):
         # Match repeated guide positions in traversal order. Reverse retains
         # guides, whereas every geometry-changing edit invalidates them.
@@ -202,9 +230,17 @@ def split_feature(terrain, feature, index):
     if index in (0, len(coordinates) - 1):
         raise ValueError('Split at an internal vertex so both resulting lines have at least two vertices.')
     second_id = str(uuid4())
-    first = _finish(terrain, feature, coordinates[:index + 1], 'split_feature',
+    locks = protected_junctions(source)
+    def part_source(part):
+        out = deepcopy(source)
+        out.pop('anchors', None)
+        out.pop('fixed_anchor_indices', None)
+        vertices = {tuple(p[:2]) for p in part}
+        out['protected_junctions'] = [p for p in locks if tuple(p) in vertices]
+        return out
+    first = _finish(terrain, part_source(coordinates[:index + 1]), coordinates[:index + 1], 'split_feature',
                     {'index': index, 'part': 1, 'other_id': second_id})
-    second = _finish(terrain, feature, coordinates[index:], 'split_feature',
+    second = _finish(terrain, part_source(coordinates[index:]), coordinates[index:], 'split_feature',
                      {'index': index, 'part': 2, 'source_id': source['id']})
     second['id'] = second_id
     second['name'] = source.get('name', 'Line') + ' (split)'
@@ -229,12 +265,21 @@ def join_features(terrain, first, second, tolerance):
     if bi == len(bc) - 1:
         bc = list(reversed(bc))
     coordinates = ac + (bc[1:] if distance == 0 else bc)
-    out = _finish(terrain, first, coordinates, 'join_features',
+    locks = protected_junctions(a)
+    for point in protected_junctions(b):
+        if point not in locks:
+            locks.append(point)
+    a['coordinates'] = coordinates
+    a['protected_junctions'] = locks
+    out = _finish(terrain, a, coordinates, 'join_features',
                   {'joined_id': b['id'], 'joined_name': b.get('name', ''),
                    'gap': distance, 'tolerance': tolerance,
                    'connection': 'shared_endpoint' if distance == 0 else 'bridge',
                    'first_endpoint_xyz': deepcopy(ac[-1]), 'second_endpoint_xyz': deepcopy(bc[0]),
                    'first_reversed': ai == 0, 'second_reversed': bi == len(b['coordinates']) - 1,
+                   'joined_engine': b.get('engine', 'legacy'), 'joined_engine_version': b.get('engine_version', 1),
+                   'joined_metrics': b.get('metrics', {}), 'joined_warnings': b.get('warnings', []),
+                   'joined_engine_evidence': b.get('engine_evidence'),
                    'joined_parameters': b.get('parameters', {}), 'joined_provenance': b.get('provenance', [])})
     return out
 
@@ -256,6 +301,11 @@ def replace_segment(terrain, feature, start, end, result, params):
         replacement = _coordinates(result.coordinates)
     except AttributeError as exc:
         raise ValueError('A correction needs a completed tracing result.') from exc
+    if not isinstance(getattr(result, 'metrics', None), dict):
+        raise ValueError('Correction engine metrics must be an object.')
+    validate_engine_metadata({'engine': result.metrics.get('engine', 'legacy'),
+                              'engine_version': result.metrics.get('engine_version', 1),
+                              'metrics': result.metrics})
     if not is_dataclass(params) or isinstance(params, type):
         raise ValueError('A correction needs TraceParams for its provenance.')
     # Accept a result supplied in the opposite click direction when unambiguous.
@@ -272,6 +322,10 @@ def replace_segment(terrain, feature, start, end, result, params):
                    {'start_index': start, 'end_index': end, 'old_vertices': end - start + 1,
                     'new_vertices': len(replacement), 'parameters': asdict(params),
                     'trace_reversed': reversed_trace, 'boundary_xyz_preserved': True,
+                    'engine': result.metrics.get('engine', 'legacy'),
+                    'engine_version': result.metrics.get('engine_version', 1),
+                    'metrics': deepcopy(result.metrics), 'warnings': deepcopy(result.warnings),
+                    'evidence_stale': True,
                     'anchors': deepcopy(getattr(result, 'anchors', []))})
 
 
@@ -284,6 +338,35 @@ def refresh_feature(terrain, feature, coordinates, operation):
     return _finish(terrain, feature, sampled, operation,
                    {'full_replacement': True, 'old_vertices': len(feature.get('coordinates', [])),
                     'new_vertices': len(sampled)})
+
+
+def validate_shared_junction_edit(feature, replacements, features):
+    """Reject disconnecting an exactly coincident, protected vertex junction.
+
+    Pure preflight: pass the original feature, all proposed replacement parts,
+    and the current feature collection before installing any edit. A junction
+    is protected when either participant has a coincident fixed guide anchor.
+    This is a conservative vertex-coincidence guard, not a topology solver:
+    no snapping, intersection inference, tolerance or neighbor mutation occurs.
+    """
+    original = _copy_feature(feature)
+    proposed = [_copy_feature(part) for part in replacements]
+    neighbors = [_copy_feature(part) for part in features if part.get('id') != original['id']]
+    def vertices(part):
+        return {tuple(point[:2]) for point in part['coordinates']}
+    def protected(part):
+        return {tuple(point) for point in protected_junctions(part)}
+    original_xy = vertices(original)
+    retained = set().union(*(vertices(part) for part in proposed))
+    locked = protected(original)
+    retained_locks = set().union(*(protected(part) for part in proposed))
+    if locked - retained_locks:
+        raise ValueError('This edit would discard protected junction metadata. Preserve the native XY protection on replacement parts.')
+    for neighbor in neighbors:
+        shared = original_xy & vertices(neighbor)
+        required = shared & (locked | protected(neighbor))
+        if required - retained:
+            raise ValueError('This edit would disconnect a shared protected junction. Keep its exact native XY vertex; coordinated network editing is not supported.')
 
 
 def reconstruct_anchors(terrain, feature, tolerance_pixels=2., max_spacing_pixels=100.):

@@ -155,6 +155,42 @@ def test_segment_correction_preserves_fractional_boundary_xyz_exactly(terrain):
     validate_segments(terrain, changed['coordinates'])
 
 
+def test_correction_keeps_new_engine_diagnostics_without_claiming_whole_line_evidence(terrain):
+    original = feature(terrain)
+    result = TraceResult([original['coordinates'][1],
+                          [*terrain.xy(25, 12), terrain.sample(*terrain.xy(25, 12))],
+                          original['coordinates'][2]], [],
+                         metrics={'engine': 'stream_auto', 'engine_version': 1,
+                                  'status': 'ambiguous', 'diagnostics': [{'code': 'fork', 'message': 'Inspect fork'}]},
+                         warnings=['Correction warning'])
+    before = deepcopy(result.metrics)
+    changed = replace_segment(terrain, original, 1, 2, result, TraceParams())
+    details = changed['provenance'][-1]['details']
+    assert details['engine'] == 'stream_auto'
+    assert details['engine_version'] == 1
+    assert details['metrics'] == before
+    assert details['warnings'] == ['Correction warning']
+    assert details['evidence_stale'] is True  # boundaries are restored, not solver output
+    assert changed['engine'] == 'legacy'  # a local correction is not a whole-line retrace
+    result.metrics['diagnostics'].clear()
+    assert details['metrics'] == before
+
+
+def test_join_retains_second_engine_evidence_in_provenance(terrain):
+    a = feature(terrain, ((10, 10), (20, 10)))
+    b = feature(terrain, ((20, 10), (30, 10)))
+    b.update(engine='stream_auto', engine_version=1)
+    b['metrics'] = {'engine': 'stream_auto', 'engine_version': 1,
+                    'diagnostics': [{'code': 'fork', 'message': 'Inspect'}]}
+    b['warnings'] = ['Second line warning']
+    joined = join_features(terrain, a, b, 0)
+    details = joined['provenance'][-1]['details']
+    assert details['joined_engine'] == 'stream_auto'
+    assert details['joined_engine_version'] == 1
+    assert details['joined_metrics'] == b['metrics']
+    assert details['joined_warnings'] == b['warnings']
+
+
 def test_refresh_samples_z_and_sparse_guides_preserve_endpoints(terrain):
     original = feature(terrain, ((10.2, 10.3), (20, 10), (30, 10), (40.1, 10.2)))
     coordinates = deepcopy(original['coordinates'])
@@ -174,6 +210,45 @@ def test_edited_features_round_trip_project_with_provenance(terrain, tmp_path):
     path = tmp_path / 'edited.tracer.json'
     save_project(path, terrain.path, [changed], {})
     assert load_project(path)['features'][0] == changed
+
+
+@pytest.mark.parametrize('operation', ['move', 'insert', 'delete', 'reverse', 'split', 'refresh'])
+def test_edits_retain_engine_evidence_as_stale_separate_from_geometry_qa(terrain, operation):
+    original = feature(terrain)
+    evidence = {'engine': 'stream_auto', 'engine_version': 1, 'status': 'ambiguous',
+                'analysis_resolution': 2, 'effective_config': {'scale': 12},
+                'diagnostics': [{'code': 'ambiguous', 'message': 'Two valleys',
+                                 'location': original['coordinates'][1][:2]}],
+                'confidence': .2, 'domain_truncated': True, 'future_evidence': {'a': [1]}}
+    original.update(engine='stream_auto', engine_version=1)
+    original['metrics'].update(evidence, length=-123, spacing_min=-1)
+    before = deepcopy(original)
+    if operation == 'move':
+        outputs = [move_vertex(terrain, original, 1, terrain.xy(20, 12))]
+    elif operation == 'insert':
+        outputs = [insert_vertex(terrain, original, 1, terrain.xy(25, 10))]
+    elif operation == 'delete':
+        outputs = [delete_vertex(terrain, original, 1)]
+    elif operation == 'reverse':
+        outputs = [reverse_feature(terrain, original)]
+    elif operation == 'split':
+        outputs = split_feature(terrain, original, 1)
+    else:
+        outputs = [refresh_feature(terrain, original, original['coordinates'], 'retrace')]
+    for out in outputs:
+        assert out['engine'] == 'stream_auto'
+        assert out['metrics']['engine'] == 'stream_auto'
+        assert out['metrics']['diagnostics'] == evidence['diagnostics']
+        assert out['metrics']['evidence_stale'] is True
+        assert out['metrics']['status'] == 'stale'
+        assert out['engine_evidence']['metrics'] == before['metrics']
+        assert out['engine_evidence']['stale'] is True
+        assert out['metrics']['length'] > 0
+        assert out['metrics']['spacing_min'] > 0
+        json.dumps(out, allow_nan=False)
+    assert original == before
+    again = reverse_feature(terrain, outputs[0])
+    assert again['engine_evidence']['metrics'] == before['metrics']
 
 
 def test_edit_recomputes_spacing_and_discards_obsolete_guide_warning(terrain):
@@ -205,6 +280,102 @@ def test_reverse_recomputes_sharp_guide_labels_without_changing_geometry(terrain
     assert not any(w.startswith('Guide anchor(s) 2 ') for w in reversed_line['warnings'])
 
 
+@pytest.mark.parametrize('protection', ['edited', 'neighbor'])
+@pytest.mark.parametrize('change', ['move', 'delete'])
+def test_shared_protected_junction_guard_rejects_disconnect_without_mutation(terrain, protection, change):
+    from tracertool.editing import validate_shared_junction_edit
+    original = feature(terrain)
+    neighbor = feature(terrain, ((20, 10), (20, 20)))
+    protected = original if protection == 'edited' else neighbor
+    protected['fixed_anchor_indices'] = [1 if protection == 'edited' else 0]
+    proposal = deepcopy(original)
+    if change == 'move':
+        proposal['coordinates'][1] = [*terrain.xy(20, 12), 1]
+    else:
+        del proposal['coordinates'][1]
+    before = deepcopy([original, proposal, neighbor])
+    with pytest.raises(ValueError, match='protected.*junction'):
+        validate_shared_junction_edit(original, [proposal], [original, neighbor])
+    assert [original, proposal, neighbor] == before
+
+
+def test_shared_junction_guard_allows_unchanged_reverse_and_split(terrain):
+    from tracertool.editing import validate_shared_junction_edit
+    original = feature(terrain)
+    original['fixed_anchor_indices'] = [1]
+    neighbor = feature(terrain, ((20, 10), (20, 20)))
+    validate_shared_junction_edit(original, [reverse_feature(terrain, original)], [original, neighbor])
+    validate_shared_junction_edit(original, list(split_feature(terrain, original, 1)), [original, neighbor])
+    # Pure edits conservatively preserve locks even without collection context.
+    with pytest.raises(ValueError, match='protected.*junction'):
+        delete_vertex(terrain, original, 1)
+
+
+def test_protection_survives_harmless_edit_save_load_and_repeated_edit(terrain, tmp_path):
+    original = feature(terrain)
+    original['fixed_anchor_indices'] = [1]
+    moved = move_vertex(terrain, original, 3, terrain.xy(40, 12))
+    assert moved['protected_junctions'] == [original['coordinates'][1][:2]]
+    path = tmp_path / 'protected.json'
+    save_project(path, terrain.path, [moved], {})
+    restored = load_project(path)['features'][0]
+    with pytest.raises(ValueError, match='protected.*junction'):
+        delete_vertex(terrain, restored, 1)
+
+
+def test_protection_partition_join_correction_and_neighbor_guard(terrain):
+    from tracertool.editing import validate_shared_junction_edit
+    original = feature(terrain)
+    original['fixed_anchor_indices'] = [0, 1, 3]
+    first, second = split_feature(terrain, original, 1)
+    assert first['protected_junctions'] == [p[:2] for p in original['coordinates'][:2]]
+    assert second['protected_junctions'] == [original['coordinates'][i][:2] for i in (1, 3)]
+    joined = join_features(terrain, first, second, 0)
+    assert joined['protected_junctions'] == [original['coordinates'][i][:2] for i in (0, 1, 3)]
+    replacement = TraceResult(deepcopy(joined['coordinates']), [])
+    corrected = replace_segment(terrain, joined, 0, 3, replacement, TraceParams())
+    assert corrected['protected_junctions'] == joined['protected_junctions']
+    replacement.coordinates.pop(1)
+    with pytest.raises(ValueError, match='protected.*junction'):
+        replace_segment(terrain, joined, 0, 3, replacement, TraceParams())
+    neighbor = feature(terrain, ((20, 10), (20, 20)))
+    proposal = deepcopy(neighbor)
+    proposal['coordinates'][0] = [*terrain.xy(21, 10), 1]
+    with pytest.raises(ValueError, match='protected.*junction'):
+        validate_shared_junction_edit(neighbor, [proposal], [neighbor, corrected])
+
+
+@pytest.mark.parametrize('field,value', [
+    ('engine_evidence', []), ('metrics', {'diagnostics': [None]}),
+    ('metrics', {'engine': 'stream_auto'}),
+])
+def test_edits_reject_malformed_engine_metadata_without_mutation(terrain, field, value):
+    original = feature(terrain)
+    original[field] = value
+    before = deepcopy(original)
+    with pytest.raises(ValueError, match='engine|diagnostic'):
+        move_vertex(terrain, original, 3, terrain.xy(40, 12))
+    assert original == before
+
+
+def test_correction_rejects_malformed_result_diagnostics(terrain):
+    original = feature(terrain)
+    result = TraceResult(deepcopy(original['coordinates']), [], metrics={'diagnostics': [None]})
+    with pytest.raises(ValueError, match='diagnostic'):
+        replace_segment(terrain, original, 0, 3, result, TraceParams())
+
+
+def test_guard_rejects_silent_protection_metadata_loss(terrain):
+    from tracertool.editing import validate_shared_junction_edit
+    original = feature(terrain)
+    original['protected_junctions'] = [original['coordinates'][1][:2]]
+    neighbor = feature(terrain, ((20, 10), (20, 20)))
+    proposal = deepcopy(original)
+    proposal.pop('protected_junctions')
+    with pytest.raises(ValueError, match='protected.*junction'):
+        validate_shared_junction_edit(original, [proposal], [original, neighbor])
+
+
 def test_zero_reconstructed_guide_tolerance_retains_original_bends(terrain):
     original = feature(terrain, ((10, 10), (11, 10.2), (12, 10), (13, 10.2), (14, 10)))
     guides = reconstruct_anchors(terrain, original, tolerance_pixels=0)
@@ -217,9 +388,12 @@ def test_editing_snapped_features_clears_or_remaps_guide_locks(terrain, tmp_path
     reversed_line = reverse_feature(terrain, original)
     assert reversed_line['fixed_anchor_indices'] == [2, 3]
     assert reverse_feature(terrain, reversed_line)['fixed_anchor_indices'] == [0, 1]
-    changed = [move_vertex(terrain, original, 1, terrain.xy(20, 12)),
+    with pytest.raises(ValueError, match='protected.*junction'):
+        move_vertex(terrain, original, 1, terrain.xy(20, 12))
+    with pytest.raises(ValueError, match='protected.*junction'):
+        delete_vertex(terrain, original, 1)
+    changed = [move_vertex(terrain, original, 3, terrain.xy(40, 12)),
                insert_vertex(terrain, original, 1, terrain.xy(25, 10)),
-               delete_vertex(terrain, original, 1),
                *split_feature(terrain, original, 1)]
     for index, updated in enumerate(changed):
         assert 'anchors' not in updated and 'fixed_anchor_indices' not in updated
