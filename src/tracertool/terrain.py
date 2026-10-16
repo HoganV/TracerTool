@@ -77,6 +77,16 @@ class Terrain:
         except (rasterio.errors.RasterioIOError, OSError) as exc:
             raise ValueError(f"Cannot open terrain raster: {exc}") from exc
         with source:
+            # Capture every GDAL-reported dependency before any pixel read, so
+            # a VRT and the cached elevations cannot describe different epochs.
+            try:
+                dependencies = []
+                for dependency_path in source.files:
+                    stat = Path(dependency_path).stat()
+                    dependencies.append({'path': dependency_path, 'size': stat.st_size,
+                                         'mtime_ns': stat.st_mtime_ns})
+            except OSError as exc:
+                raise ValueError(f'Cannot identify terrain dependency: {exc}') from exc
             if not source.count or source.width < 2 or source.height < 2:
                 raise ValueError("Terrain needs an elevation band at least 2 × 2 pixels.")
             if np.dtype(source.dtypes[0]).kind == 'c':
@@ -159,6 +169,7 @@ class Terrain:
                 "vertical_units_assumed": vertical_m is None,
                 "valid_fraction": float(valid.mean()), "band": 1,
                 "source_size": source_stat.st_size, "source_mtime_ns": source_stat.st_mtime_ns,
+                "source_dependencies": dependencies,
                 "band_scale": source_scale, "band_offset": source_offset,
                 "scale_offset_applied": source_scale != 1. or source_offset != 0.,
                 "source_nodata": float(source.nodata) if source.nodata is not None and math.isfinite(source.nodata) else None,
@@ -166,9 +177,33 @@ class Terrain:
             terrain = cls(path, data, valid, working_t, crs, width, height,
                           resolution, units, metadata, tuple(source.bounds), t, source_data,
                           _source_scale=source_scale, _source_offset=source_offset)
+        terrain.check_source_unchanged()
         if compute_fingerprint:
             terrain.fingerprint()
         return terrain
+
+    def check_source_unchanged(self):
+        """Reject a changed load-time raster/dependency snapshot before use.
+
+        Identities are local file size/mtime checks, not content hashes. This
+        guard also covers the snapshot retained in the source sampling cache.
+        """
+        try:
+            stat = Path(self.path).stat()
+            if (stat.st_size, stat.st_mtime_ns) != (
+                    self.metadata['source_size'], self.metadata['source_mtime_ns']):
+                raise ValueError('Source changed after loading; reload the DEM before continuing.')
+            dependencies = self.metadata.get('source_dependencies', [])
+            for item in dependencies:
+                current = Path(item['path']).stat()
+                if (current.st_size, current.st_mtime_ns) != (item['size'], item['mtime_ns']):
+                    raise ValueError('Source changed after loading (raster dependency); reload the DEM before continuing.')
+            if dependencies:
+                with rasterio.open(self.path) as source:
+                    if set(source.files) != {item['path'] for item in dependencies}:
+                        raise ValueError('Source changed after loading (raster dependencies); reload the DEM before continuing.')
+        except (OSError, rasterio.errors.RasterioIOError) as exc:
+            raise ValueError('Source changed or became unavailable after loading; reload the DEM before continuing.') from exc
 
     def fingerprint(self):
         """Return a cached SHA256 of this loaded raster's file contents.
@@ -213,6 +248,7 @@ class Terrain:
 
     def sample_many(self, coordinates):
         """Read nearest source-pixel elevations, returning None outside/at NoData."""
+        self.check_source_unchanged()
         points = list(coordinates)
         if self._source_data is not None:
             out = []
@@ -242,6 +278,7 @@ class Terrain:
                 decoded = (float(value) * self._source_scale + self._source_offset
                            if not np.ma.is_masked(value) and np.isfinite(value) else np.nan)
                 out.append(decoded if math.isfinite(decoded) else None)
+        self.check_source_unchanged()
         return out
 
     def surface(self):

@@ -16,7 +16,7 @@ import numpy as np
 from PySide6.QtCore import Qt, QTimer, QStandardPaths
 from PySide6.QtWidgets import QApplication, QDialog, QFileDialog, QInputDialog, QMessageBox
 
-from . import editing
+from . import editing, project
 from .preferences import DEFAULTS, PreferencesDialog, ReprojectDialog, normalize_preferences, display_kwargs
 from .recovery import RecoveryStore
 
@@ -29,6 +29,7 @@ class DesktopActions:
         self.segment_first = None
         self.selected_vertex = None
         self._draft_kind = None
+        self._draft_revision = 0
         self._anchor_exact = {}
         self._fixed_anchor_indices = set()
         self.selected_anchor = None
@@ -78,6 +79,7 @@ class DesktopActions:
         index = next(i for i, f in enumerate(self.features) if f["id"] == updated["id"])
         if updated == self.features[index]:
             return
+        editing.validate_shared_junction_edit(self.features[index], [updated], self.features)
         self.snapshot()
         self.features[index] = updated
         self.mark_dirty()
@@ -173,6 +175,7 @@ class DesktopActions:
             return
         try:
             first, second = editing.split_feature(self.terrain, feature, self.selected_vertex)
+            editing.validate_shared_junction_edit(feature, [first, second], self.features)
             self.snapshot()
             index = self.features.index(feature)
             self.features[index:index + 1] = [first, second]
@@ -193,6 +196,8 @@ class DesktopActions:
         first, second = [next(f for f in self.features if f["id"] == i) for i in ids]
         try:
             joined = editing.join_features(self.terrain, first, second, self.preferences["editing"]["join_tolerance"])
+            editing.validate_shared_junction_edit(first, [joined], self.features)
+            editing.validate_shared_junction_edit(second, [joined], self.features)
             self.snapshot()
             self.features = [joined if f["id"] == first["id"] else f for f in self.features if f["id"] != second["id"]]
             self.selected = joined["id"]
@@ -228,9 +233,23 @@ class DesktopActions:
                 self.param_widgets[key].setValue(value)
                 self.param_widgets[key].blockSignals(False)
 
+    def select_feature_engine(self, feature):
+        try:
+            engine = project.require_supported_engine(feature)
+            if engine == 'stream_auto' and feature['kind'] != 'stream':
+                raise ValueError("Auto engine is supported only for stream lines.")
+        except ValueError as exc:
+            self.error(str(exc))
+            return False
+        if feature['kind'] == 'stream':
+            self.stream_engine.setCurrentIndex(self.stream_engine.findData(engine))
+        return True
+
     def begin_retrace(self):
         feature = self.current_feature()
         if self.busy or not feature or not self.confirm_draft_discard():
+            return
+        if not self.select_feature_engine(feature):
             return
         self.clear_draft()
         self.edit_target = feature["id"]
@@ -247,6 +266,8 @@ class DesktopActions:
 
     def begin_segment(self):
         if self.busy or not self.current_feature() or not self.confirm_draft_discard():
+            return
+        if not self.select_feature_engine(self.current_feature()):
             return
         self.clear_draft()
         self.segment_first = None
@@ -268,6 +289,8 @@ class DesktopActions:
             self.statusBar().showMessage("First boundary selected · click the other boundary")
             return
         if self.segment_first == index:
+            return
+        if not self.select_feature_engine(feature):
             return
         start, end = sorted((self.segment_first, index))
         self.segment_range = (start, end)
