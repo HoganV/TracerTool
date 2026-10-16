@@ -36,6 +36,12 @@ jobs:
           python-version: '3.12'
       - name: Audit tracked files and complete reachable history
         run: python scripts/check_publication.py --history
+      - name: Validate distribution dispatch
+        env:
+          BUILD_PORTABLE: ${{ inputs.build_portable }}
+          UPLOAD_PORTABLE: ${{ inputs.upload_portable }}
+        run: |
+          python -c "import os; upload=os.environ.get('UPLOAD_PORTABLE') == 'true'; build=os.environ.get('BUILD_PORTABLE') == 'true'; assert not upload or build, 'Upload requires build_portable'; assert not upload, 'Public binary distribution remains uncleared; build verification is available without upload'"
 
   test:
     name: Tests (${{ matrix.os }}, Python ${{ matrix.python }})
@@ -128,7 +134,7 @@ jobs:
       - name: Build and smoke-test native portable app
         run: python scripts/build_portable.py
       - name: Verify extracted portable archive
-        run: python -c "import glob, subprocess, sys; archives = glob.glob('dist/*-portable.zip'); assert archives; [subprocess.run([sys.executable, 'scripts/verify_portable.py', p], check=True) for p in archives]"
+        run: python -c "import glob, subprocess, sys; sha=subprocess.check_output(['git','rev-parse','HEAD'], text=True).strip(); archives = glob.glob('dist/*-portable.zip'); assert archives; [subprocess.run([sys.executable, 'scripts/verify_portable.py', p, '--expected-commit', sha], check=True) for p in archives]"
       # A public-repository Actions artifact is distribution too. Review first.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: inputs.upload_portable
